@@ -94,7 +94,8 @@ int main() {
     imprime_JT();
     imprime_PMT();
     imprimirListaPCB();
-    
+     cout << "\n\nPresione cualquier tecla para continuar con round robin...";
+                    getch();
     Round_robin_con_interrupciones(ppcb,A,pmmt,pp);
     
     cout << "\nPresione cualquier tecla para salir...";
@@ -135,42 +136,66 @@ void Crear_vector(Interrupciones A[]) {
     A[14].desc = "Leer posicion del cursor";
 }
 void inicializar_sistema() {
+    /* Initialize random seed */
     srand(time(NULL));
     int marcos_totales = calc_marcos();
-    cout<<marcos_totales<<endl;
-    // Initialize Memory Management
+    cout << marcos_totales << endl;
+    
+    /* Initialize Memory Management */
     crearMMT(marcos_totales);
-    // pmmt->edo=1;
-    imprime_MMT();
-    // asigna_so();
     crearJT();
 
-    // Create test processes and link them to memory tasks
-    for(int i = 0; i < 5; i++) {
-        nuevopcb = new PCB;
-        sprintf(nuevopcb->proceso, "P%d", i+1);
-        nuevopcb->tiempo_llegada = i;
-        nuevopcb->ciclos = 2 + rand() % 6;
-        nuevopcb->estado = 1;
-        nuevopcb->ntar = i;  // Link to memory task
-        nuevopcb->siguiente = NULL;
+    /* Create test processes and link them to memory tasks */
+    int proceso_count = 0;
+    auxjt = pjt;
+    
+    while (auxjt != NULL && proceso_count < 5) {
+        int i;
+        for (i = 0; i < 5 && proceso_count < 5; i++) {  /* Max 5 processes per task */
+            nuevopcb = new PCB;
+            /* Clear memory first */
+            memset(nuevopcb, 0, sizeof(PCB));
+            
+            char temp[20];
+            sprintf(temp, "J%dP%d", proceso_count + 1, i);  /* Format: J1P0, J1P1, etc. */
+            strcpy(nuevopcb->proceso, temp);
+            
+            nuevopcb->tiempo_llegada = proceso_count;
+            nuevopcb->ciclos = 2 + rand() % 6;
+            nuevopcb->estado = 1;
+            nuevopcb->ntar = proceso_count;
+            nuevopcb->CicInt = rand() % 3;
+            nuevopcb->Interrpcion = rand() % 2;  /* Random 0 or 1 */
+            nuevopcb->ciclos_transcurridos = 0;
+            
+            if (nuevopcb->Interrpcion) {
+                nuevopcb->CodInt = rand() % 14;  /* Random interrupt code */
+                nuevopcb->IniInt = 2 + rand() % (nuevopcb->ciclos - 1);
+                nuevopcb->Duracion = 1 + rand() % 3;
+            } else {
+                nuevopcb->IniInt = 0;
+                nuevopcb->CodInt = -1;
+                nuevopcb->Duracion = 0;
+            }
+            
+            nuevopcb->siguiente = NULL;
 
-        if (ppcb == NULL) {
-            ppcb = nuevopcb;
-            qpcb = ppcb;
-        } else {
-            qpcb->siguiente = nuevopcb;
-            qpcb = nuevopcb;
-        }
+            if (ppcb == NULL) {
+                ppcb = nuevopcb;
+                qpcb = ppcb;
+            } else {
+                qpcb->siguiente = nuevopcb;
+                qpcb = nuevopcb;
+            }
 
-        // Assign memory pages for this process in the pcb
-        auxjt = pjt;
-        while (auxjt != NULL && auxjt->ntar != i) {
-            auxjt = auxjt->sig;
+            /* Assign memory pages for this process */
+            if (auxjt != NULL) {
+                asigna_pag(auxjt->ntar, auxjt->tamtar);
+            }
+            
+            proceso_count++;
         }
-        if (auxjt != NULL) {
-            asigna_pag(auxjt->ntar, auxjt->tamtar);
-        }
+        auxjt = auxjt->sig;
     }
 
     asigna_paginas_con_secuencia();
@@ -411,6 +436,7 @@ void asigna_paginas_con_secuencia() {
 }
 
 void imprimirListaPCB() {
+    cout << endl;
     cout << "\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
     cout << "-------------------------------------------------------------------------------------------------" << endl;
     cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      CPU-E/S     |Ini.Int|Duracion|Interr.|" << endl;
@@ -474,43 +500,68 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
     int tiempo_total = 0;
     actual = ppcb;
 
-    // Initialize all processes to Ready state
+    /* Initialize all processes to Ready state */
     while (actual != NULL) {
-        actual->estado = 2;
+        actual->estado = 2;  /* Set to Ready state */
         actual = actual->siguiente;
     }
 
-    bool hayPendientes;
-    bool mostrarInterrupcion = false;
+    int hayPendientes;  /* Changed from bool to int for C++98 */
+    int mostrarInterrupcion = 0;  /* Changed from bool to int */
     PCB* procesoInterrumpido = NULL;
     PCB* anterior = NULL;
 
     do {
-        hayPendientes = false;
+        hayPendientes = 0;
         actual = ppcb;
         anterior = NULL;
 
         while (actual != NULL) {
-            if (actual->estado == 2) {
-                actual->estado = 3; // Running
+            if (actual->estado == 2) {  /* If process is Ready */
+                actual->estado = 3;  /* Set to Running */
+                clrscr();  /* Borland specific */
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
                 int cont = 0;
 
                 while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
-                    // system("cls");
-                    imprimirListaPCB();
-                    imprime_PMT();
-                    
+                    clrscr();  /* Borland specific */
+                    cout << "\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
+                    cout << "-------------------------------------------------------------------------------------------------\n";
+                    cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      CPU-E/S     |Ini.Int|Duracion|Interr.|\n";
+                    cout << "-------------------------------------------------------------------------------------------------\n";
+
+                    /* Display current state of all processes */
+                    PCB* temp = ppcb;
+                    while (temp != NULL) {
+                        cout << temp->proceso;
+                        cout << "\t\t" << temp->tiempo_llegada << "t";
+                        cout << "\t\t" << temp->ciclos << "ms";
+                        cout << "\t\t" << temp->estado;
+                        
+                        if(temp->Interrpcion)
+                            cout << "\t    E/S";
+                        else
+                            cout << "\t    CPU";
+                        
+                        cout << "\t\t   " << temp->IniInt;
+                        cout << "\t   " << temp->Duracion;
+                        cout << "\t   " << temp->CodInt;
+                        cout << "\n";
+                        
+                        temp = temp->siguiente;
+                    }
+                    cout << "-------------------------------------------------------------------------------------------------\n";
+
                     actual->ciclos--;
                     tiempo_total++;
                     cont++;
                     actual->ciclos_transcurridos++;
 
-                    // Check for interruption
+                    /* Check for interruption */
                     if (actual->Interrpcion && 
                         actual->ciclos_transcurridos == actual->IniInt) {
-                        mostrarInterrupcion = true;
+                        mostrarInterrupcion = 1;
                         procesoInterrumpido = actual;
                         break;
                     }
@@ -519,13 +570,38 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                     cout << "\nCiclos restantes: " << actual->ciclos;
                     cout << "\nTiempo total: " << tiempo_total;
                     cout << "\n\nPresione cualquier tecla para continuar...";
-                    getch();
+                    getch();  /* Borland specific */
                 }
 
                 if (mostrarInterrupcion) {
-                    manejador_interrupciones(procesoInterrumpido, A, pmmt, pp);
+                    clrscr();
+                    cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt;
+                    cout << "\nError encontrado en " << procesoInterrumpido->proceso;
+                    cout << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt;
+                    cout << "\nDescripcion: " << A[procesoInterrumpido->CodInt].desc;
                     
-                    // Remove interrupted process from list
+                    /* Liberar memoria asignada al proceso */
+                    PMT* auxp = pp[procesoInterrumpido->ntar];
+                    while (auxp != NULL) {
+                        if (auxp->estado == 1) {
+                            MMT* auxmmt = pmmt;
+                            while (auxmmt != NULL) {
+                                if (auxmmt->marco == auxp->marco) {
+                                    auxmmt->edo = 0;
+                                    break;
+                                }
+                                auxmmt = auxmmt->sig;
+                            }
+                            auxp->estado = 0;
+                            auxp->marco = 0;
+                        }
+                        auxp = auxp->sig;
+                    }
+                    
+                    cout << "\n\nPresione cualquier tecla para continuar...";
+                    getch();
+                    
+                    /* Remove interrupted process from list */
                     if (procesoInterrumpido == ppcb) {
                         ppcb = ppcb->siguiente;
                     } else {
@@ -533,16 +609,16 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                     }
                     
                     delete procesoInterrumpido;
-                    mostrarInterrupcion = false;
+                    mostrarInterrupcion = 0;
                     actual = (anterior != NULL) ? anterior->siguiente : ppcb;
                     continue;
                 }
 
                 if (actual->ciclos == 0) {
-                    actual->estado = 5; // Finished
+                    actual->estado = 5;  /* Finished */
                     actual->tiempo_retorno = tiempo_total - actual->tiempo_llegada;
                 } else {
-                    actual->estado = 4; // Blocked
+                    actual->estado = 4;  /* Blocked */
                 }
             }
             
@@ -550,17 +626,18 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
             actual = actual->siguiente;
         }
 
-        // Check for pending processes
+        /* Check for pending processes */
         actual = ppcb;
+        hayPendientes = 0;
         while (actual != NULL) {
             if (actual->estado == 2 || actual->estado == 4) {
-                hayPendientes = true;
+                hayPendientes = 1;
                 break;
             }
             actual = actual->siguiente;
         }
 
-        // Reset blocked processes to ready
+        /* Reset blocked processes to ready */
         actual = ppcb;
         while (actual != NULL) {
             if (actual->estado == 4) {
@@ -571,25 +648,29 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
 
     } while (hayPendientes);
 
-    // Print final statistics
+    /* Print final statistics */
     cout << "\n=== RESUMEN DE EJECUCION ===\n";
     cout << "Tiempo total: " << tiempo_total << " ms\n\n";
     cout << "Tiempos de retorno por proceso:\n";
-    cout << "--------------------------------\n";
+    cout << "-----------------------------------------\n";
+    cout << "| Proceso | Tiempo de Retorno (ms) |\n";
+    cout << "-----------------------------------------\n";
     
     actual = ppcb;
     float total_retorno = 0;
     int num_procesos = 0;
 
     while (actual != NULL) {
-        cout << actual->proceso << ": " << actual->tiempo_retorno << " ms\n";
+        cout << "| " << actual->proceso << "\t|\t" << actual->tiempo_retorno << " ms |\n";
         total_retorno += actual->tiempo_retorno;
         num_procesos++;
         actual = actual->siguiente;
     }
 
+    cout << "-----------------------------------------\n";
     if (num_procesos > 0) {
-        cout << "--------------------------------\n";
-        cout << "Tiempo promedio de retorno: " << total_retorno/num_procesos << " ms\n";
+        float promedio = total_retorno / num_procesos;
+        cout << "Tiempo de retorno promedio: " << promedio << " ms\n";
     }
+    cout << "Tiempo total de ejecucion: " << tiempo_total << " ms\n\n";
 }
