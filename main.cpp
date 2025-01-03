@@ -438,7 +438,7 @@ void imprimirListaPCB() {
 }
 
 void manejador_interrupciones(PCB* process, Interrupciones A[], MMT* pmmt, PMT* pp[]) {
-    system("cls");
+    // system("cls");
     cout << "\n=== MANEJADOR DE INTERRUPCIONES ===\n";
     cout << "Codigo de interrupcion: " << process->CodInt << endl;
     cout << "Proceso: " << process->proceso << endl;
@@ -498,7 +498,7 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                 int cont = 0;
 
                 while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
-                    system("cls");
+                    // system("cls");
                     imprimirListaPCB();
                     imprime_PMT();
                     
@@ -523,7 +523,7 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                 }
 
                 if (mostrarInterrupcion) {
-                    handle_interruption(procesoInterrumpido, A, pmmt, pp);
+                    manejador_interrupciones(procesoInterrumpido, A, pmmt, pp);
                     
                     // Remove interrupted process from list
                     if (procesoInterrumpido == ppcb) {
