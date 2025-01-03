@@ -22,7 +22,6 @@ struct PCB {
     int CodInt; 
     int Duracion;
     int tiempo_retorno;
-    
     bool Interrpcion;
     int ciclos_transcurridos;
     PCB* siguiente;
@@ -46,6 +45,7 @@ void imprimirListaPCB();
 void Round_robin();  
 void imprimirTiemposRetorno();
 void Crear_vector(Interrupciones A[]);
+void Eliminamiembro();
 
 tareas* ptar = NULL, * qtar, * nuevotar, * auxtar;
 PCB* ppcb = NULL, * qpcb, * nuevopcb, * auxpcb;
@@ -128,7 +128,7 @@ void crearJT() {
     }
 }
 
-void imprimirJT() {
+void imprimirJT() {                                                                                                 
     cout << "Tabla de Tareas" << endl;
     int contador_tarea = 1;
 
@@ -174,7 +174,7 @@ void crearListaPCB() {
                 nuevopcb->Interrpcion=0+rand()%2;
                 if(nuevopcb->Interrpcion==1){
                     nuevopcb->CodInt = 0+rand ()%14;
-                    nuevopcb->IniInt=1+rand()%(nuevopcb->ciclos-1+1);
+                    nuevopcb->IniInt=2+rand()%(nuevopcb->ciclos-2+1);
                 }else if(nuevopcb->Interrpcion==0){
                     nuevopcb->IniInt=0;
                     nuevopcb->CodInt = -1;
@@ -200,54 +200,54 @@ void crearListaPCB() {
 
 void imprimirListaPCB() {
     cout << "\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
-    cout << "----------------------------------------------------------------------------------------------" << endl;
-    cout << "|Proceso|    T. Llegada    |   Ciclos  |      CPU-E/S     |   Estado |Ini.Int|Duracion|Interr.|" << endl;
-    cout << "----------------------------------------------------------------------------------------------" << endl;
+    cout << "-------------------------------------------------------------------------------------------------" << endl;
+    cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      CPU-E/S     |Ini.Int|Duracion|Interr.|" << endl;
+    cout << "-------------------------------------------------------------------------------------------------" << endl;
 
     PCB* actual = ppcb;
     while (actual != NULL) {
         // Imprimir el proceso si no tiene interrupción activa
         cout << actual->proceso
              << "\t\t" << actual->tiempo_llegada << "t"
-             << "\t\t" << actual->ciclos << "ms";
-             if(actual->Interrpcion==true)
-                cout<<"\t\tE/S";
+             << "\t\t" << actual->ciclos << "ms"
+             << "\t\t" << actual->estado;
+            if(actual->Interrpcion==true)
+                cout<<"\t    E/S";
              else if(actual->Interrpcion==false)
-                cout<<"\t\tCPU";
-        cout << "\t\t" << actual->estado
-             << "\t" << actual->IniInt
-             << "\t" << actual->Duracion
-             << "\t" << actual->CodInt
+                cout<<"\t    CPU";
+        cout << "\t\t   " << actual->IniInt
+             << "\t   " << actual->Duracion
+             << "\t   " << actual->CodInt
              << endl;
 
         actual = actual->siguiente; // Avanzar al siguiente proceso
     }
-    cout << "----------------------------------------------------------------------------------------------" << endl;
+    cout << "-------------------------------------------------------------------------------------------------" << endl;
 }
 
 
 
 void Crear_vector(Interrupciones A[]){
-   A[0].codigo= 10; 
-   A[0].desc= "Leer caracter ampliado e/s \n";
-   A[1].codigo=2;
-   A[1].desc="Interrupcion no enmascarable\n";
+   A[0].codigo= 19; 
+   A[0].desc= "Obtener unidad de disco por defecto \n";
+   A[1].codigo=23;
+   A[1].desc="Invoca los servicios de la impresora de la ROM BIOS\n";
    A[2].codigo=63;
    A[2].desc="Gestor Overlay\n";
    A[3].codigo=75;
    A[3].desc="Reservada para BIOS\n";
-   A[4].codigo=9;
-   A[4].desc="Generados por accion del teclado\n";
-   A[5].codigo=8;
-   A[5].desc="Obtener atributo y caracter en el cursor\n";
-   A[6].codigo=11;
-   A[6].desc="Asignar paleta de colores\n";
-   A[7].codigo=15;
-   A[7].desc="Obtener buffer del video\n";
+   A[4].codigo=94;
+   A[4].desc="Obtener nombre de la maquina/instalacion de impresora\n";
+   A[5].codigo=22;
+   A[5].desc="Escritura aleatoria\n";
+   A[6].codigo=30;
+   A[6].desc="Apunta a la tabla de parametros de la unidad de disco\n";
+   A[7].codigo=47;
+   A[7].desc="Interrupcion multiple del DOS\n";
    A[8].codigo= 31; 
-   A[8].desc= "Apuinta a los  caracteres graficos del CGA\n";
+   A[8].desc= "Apunta a los  caracteres graficos del CGA\n";
    A[9].codigo= 31; 
-   A[9].desc= "Apuinta a los  caracteres graficos del CGA\n";
+   A[9].desc= "Apunta a los  caracteres graficos del CGA\n";
    A[10].codigo= 33; 
    A[10].desc= "Invoca a todos los servicion en funcion a DOS\n";
    A[11].codigo= 40; 
@@ -258,105 +258,95 @@ void Crear_vector(Interrupciones A[]){
    A[13].desc= "Ejecutar comando\n";
    A[14].codigo= 3; 
    A[14].desc= "Leer la posicion del cursor\n";
-}
+}   
 
 void Round_robin() {
     PCB* actual;
     int tiempo_total = 0;
     actual = ppcb;
 
-    
+    // Inicializar todos los procesos a estado 2 (Listo)
     while (actual != NULL) {
         actual->estado = 2;
         actual = actual->siguiente;
     }
 
     bool hayPendientes;
-    bool mostrarInterrupcion = false;  
-    PCB* procesoInterrumpido = NULL;  
+    bool mostrarInterrupcion = false;
+    PCB* procesoInterrumpido = NULL;
 
     do {
         hayPendientes = false;
         actual = ppcb;
+        PCB* anterior = NULL; // Para manejar la eliminación de nodos
 
         while (actual != NULL) {
-            if (actual->estado == 2 || actual->estado == 4) {
-                actual->estado = 3;  
+            if (actual->estado == 2) {
+                actual->estado = 3; // Ejecutando
                 system("cls");
 
-                if (actual->ciclos > quantum) {
-                    int cont = 0;
-                    while (cont < quantum) {
-                        system("cls");
-                        imprimirListaPCB();
-                        actual->ciclos--;
-                        tiempo_total++;
-                        cont++;
-                        actual->ciclos_transcurridos++;
-                        system("pause");
+                int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
+                int cont = 0;
+
+                while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
+                    system("cls");
+                    imprimirListaPCB();
+                    actual->ciclos--;
+                    tiempo_total++;
+                    cont++;
+                    actual->ciclos_transcurridos++;
+
+                    system("pause");
+
+                    if (actual->ciclos_transcurridos == actual->IniInt || 
+                        (actual->ciclos == 0 && actual->ciclos_transcurridos == actual->IniInt)) {
                         
-                        if (actual->ciclos_transcurridos == actual->IniInt) {
-                            mostrarInterrupcion = true;
-                            procesoInterrumpido = actual;
-                            break; 
-                        }
+                        mostrarInterrupcion = true;
+                        procesoInterrumpido = actual;
+                        break; 
+                    }
+                }
+
+                if (mostrarInterrupcion) {
+                    system("cls");
+                    imprimirListaPCB();
+                    cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt
+                         << "\nError encontrado en " << procesoInterrumpido->proceso
+                         << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt
+                         << "\nDescripcion: " << A[procesoInterrumpido->CodInt].desc
+                         << "\n\nPresione cualquier tecla para continuar y eliminar la interrupcion...";
+
+                    getch();
+
+                    // Eliminar el proceso interrumpido de la lista
+                    if (procesoInterrumpido == ppcb) {
+                        ppcb = ppcb->siguiente; // Eliminar el primer nodo
+                    } else {
+                        anterior->siguiente = procesoInterrumpido->siguiente;
                     }
 
-                    
-                    if (mostrarInterrupcion) break;
+                    delete procesoInterrumpido; // Liberar memoria
+                    procesoInterrumpido = NULL;
+                    mostrarInterrupcion = false;
 
-                    actual->estado = 4;  
-                } else {  
-                    while (actual->ciclos > 0) {
-                        system("cls");
-                        imprimirListaPCB();
-                        actual->ciclos--;
-                        tiempo_total++;
-                        actual->ciclos_transcurridos++;
-                        system("pause");
-                        if (actual->ciclos_transcurridos == actual->IniInt) {
-                            mostrarInterrupcion = true;
-                            procesoInterrumpido = actual;
-                            break;  
-                        }
-                    }
-                    if (mostrarInterrupcion) break;
+                    // Continuar con el siguiente nodo después de eliminar
+                    actual = (anterior != NULL) ? anterior->siguiente : ppcb;
+                    continue;
+                }
 
-                    actual->estado = 5;   
+                if (actual->ciclos == 0) {
+                    actual->estado = 5; // Finalizado
+                } else if (actual->estado != 6) {
+                    actual->estado = 4; // Bloqueado
                 }
             }
 
-            
-            if (mostrarInterrupcion) {
-                system("cls");
-                imprimirListaPCB();
-                cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt
-                     << "\nError encontrado en " << procesoInterrumpido->proceso
-                     << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt
-                     << "\nDescripcion: " << A[procesoInterrumpido->CodInt].desc
-                     << "\n\nPresione cualquier tecla para continuar y eliminar la interrupcion...";
-                getch();
-
-                
-                if (ppcb == procesoInterrumpido) {
-                    ppcb = ppcb->siguiente;
-                } else {
-                    PCB* prev = ppcb;
-                    while (prev->siguiente != procesoInterrumpido) {
-                        prev = prev->siguiente;
-                    }
-                    prev->siguiente = procesoInterrumpido->siguiente;
-                }
-                delete procesoInterrumpido;
-                procesoInterrumpido = NULL;
-                mostrarInterrupcion = false;
-                break;   
-            }
-
+            anterior = actual;
             actual = actual->siguiente;
         }
 
-         
+        // Verificar si quedan procesos pendientes
+        hayPendientes = false;
         actual = ppcb;
         while (actual != NULL) {
             if (actual->estado == 2 || actual->estado == 4) {
@@ -366,12 +356,19 @@ void Round_robin() {
             actual = actual->siguiente;
         }
 
+        // Reiniciar solo los procesos bloqueados (estado 4 a estado 2)
+        actual = ppcb;
+        while (actual != NULL) {
+            if (actual->estado == 4) {
+                actual->estado = 2;  // Reiniciar de Bloqueado a Listo
+            }
+            actual = actual->siguiente;
+        }
+
     } while (hayPendientes);
 
     cout << "\nEjecucion completada. Tiempo total: " << tiempo_total << " ms.\n";
 }
-
-
 
 void imprimirTiemposRetorno() {
     cout << "\n\t\tTIEMPO DE RETORNO DE PROCESOS\n";
