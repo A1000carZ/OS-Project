@@ -89,10 +89,11 @@ int main() {
 
 int calc_marcos(void) {
     int cap_mem, cant_marcos;
-    cap_mem = mem * 1024;
-    cant_marcos = cap_mem / ma; // Capacidad total de memoria dividida por el tama?o de un marco
+    cap_mem = mem * 1024;  // 1.5MB de memoria
+    cant_marcos = cap_mem / ma;  // Dividiendo por el tamaño de un marco
     return cant_marcos;
 }
+
 
 void crearMMT(int a) {
     int mar = 0;
@@ -102,7 +103,7 @@ void crearMMT(int a) {
             pmmt = new MMT;
             pmmt->marco = mar;
             pmmt->loc = mar * ma;
-            pmmt->edo = 0; // Marco libre
+            pmmt->edo = 1;
             pmmt->sig = NULL;
             qmmt = pmmt;
         }
@@ -305,9 +306,10 @@ void asigna_paginas_con_secuencia() {
     auxjt = pjt;  // Iterador de la tabla de tareas
     auxmmt = pmmt; // Iterador de la MMT
 
-    // Avanzar marcos hasta despu?s del sistema operativo (marcos ocupados por el SO)
+    // Avanzar marcos hasta después del sistema operativo (marcos ocupados por el SO)
     while (auxmmt != NULL && auxmmt->edo == 1) {
         auxmmt = auxmmt->sig;
+        cout << "Marco ocupado por SO, avanzando al siguiente." << endl; // Mensaje de depuración
     }
 
     // Para cada tarea en la JT
@@ -337,29 +339,47 @@ void asigna_paginas_con_secuencia() {
             }
 
             // Si encontramos una entrada en la PMT y hay marcos disponibles en la MMT
-            if (auxp != NULL && auxmmt != NULL && auxmmt->edo == 0) {
-                // Asignar el marco y la localidad física
-                auxp->marco = auxmmt->marco;
-                auxp->estado = 1;  // La página ahora está ocupada
-                auxmmt->edo = 1;  // El marco en la MMT está ocupado
-                auxmmt = auxmmt->sig;  // Pasar al siguiente marco libre en la MMT
-                marcos_asignados++;
+            while (auxp != NULL && auxmmt != NULL) {
+                if (auxmmt->edo == 0) {  // Si el marco está libre
+                    
+                    auxp->marco = auxmmt->marco;
+                    auxp->estado = 1; 
+                    auxmmt->edo = 1;  // El marco en la MMT está ocupado
+                    auxmmt = auxmmt->sig; 
+                    marcos_asignados++;
+                    cout << "Asignando marco " << auxp->marco << " a la página " << auxp->pagina << endl; // Mensaje de depuración
+
+                    // Si se asignaron 3 marcos, salir del bucle
+                    if (marcos_asignados >= 3) {
+                        cout << "Ya se asignaron 3 marcos para esta tarea." << endl;
+                        break; 
+                    }
+                } else {
+                    
+                    cout << "No hay marcos libres disponibles." << endl;
+                    break;
+                }
+            }
+
+          
+            if (auxmmt == NULL && marcos_asignados < 3) {
+                cout << "No hay suficientes marcos libres para asignar a la página " << pagina_logica << endl;
             }
         }
 
-        auxjt = auxjt->sig;  // Pasar a la siguiente tarea
+        auxjt = auxjt->sig; 
     }
 }
 
 void inicializar_sistema() {
     srand(time(NULL));
     int marcos_totales = calc_marcos();
-
+    cout<<marcos_totales<<endl;
     // Initialize Memory Management
     crearMMT(marcos_totales);
-    pmmt->edo=1;
+    // pmmt->edo=1;
     imprime_MMT();
-    asigna_so();
+    // asigna_so();
     crearJT();
 
     // Create test processes and link them to memory tasks
