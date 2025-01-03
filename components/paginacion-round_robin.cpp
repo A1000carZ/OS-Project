@@ -64,7 +64,7 @@ void imprime_MMT();
 void imprime_PMT();
 void imprime_JT();
 void asigna_pag(int, int);
-int asigna_so();
+void asigna_so();
 void asigna_paginas_con_secuencia();
 void imprimirListaPCB();
 void Round_robin();
@@ -74,14 +74,14 @@ void inicializar_sistema();
 
 int main() {
     inicializar_sistema();
-    
+
     cout << "Estado inicial del sistema:\n";
     imprime_MMT();
     imprime_JT();
     imprime_PMT();
     imprimirListaPCB();
     Round_robin();
-    
+
     cout << "\nPresione cualquier tecla para salir...";
     getch();
     return 0;
@@ -125,10 +125,10 @@ void imprime_MMT() {
     cout << "\n+----------+-----------+-------+\n";
     cout << "| No.Marco | Local.i   | Estado|\n";
     cout << "+----------+-----------+-------+\n";
-    
+
     while (auxmmt != NULL) {
-        cout << "| " << setw(8) << auxmmt->marco 
-             << " | " << setw(9) << auxmmt->loc 
+        cout << "| " << setw(8) << auxmmt->marco
+             << " | " << setw(9) << auxmmt->loc
              << " | " << setw(5) << auxmmt->edo << " |\n";
         auxmmt = auxmmt->sig;
     }
@@ -180,13 +180,13 @@ void imprime_JT() {
     cout << "\n+----------+----------+----------+-----------------+\n";
     cout << "| No.Tarea | Lineas   | Loc.PMT  | Secuencia      |\n";
     cout << "+----------+----------+----------+-----------------+\n";
-    
+
     while (auxjt != NULL) {
-        cout << "| J" << setw(7) << auxjt->ntar 
-             << " | " << setw(8) << auxjt->tamtar 
-             << " | " << setw(8) << "101" << auxjt->ntar 
+        cout << "| J" << setw(7) << auxjt->ntar
+             << " | " << setw(8) << auxjt->tamtar
+             << " | " << setw(8) << "101" << auxjt->ntar
              << " | [";
-        
+
         for(int i = 0; i < 8; i++) {
             cout << "P" << auxjt->secuencia[i];
             if(i < 7) cout << " ";
@@ -201,7 +201,7 @@ void crearPMT(int ntar, int npaginas) {
     // Reseteamos el puntero para la MMT
     auxmmt = pmmt;
     pp[ntar] = NULL; // Inicializa la PMT de la tarea ntar
-    
+
     for (int i = 0; i < npaginas; i++) {
         if (pp[ntar] == NULL) {
             pp[ntar] = new PMT;
@@ -233,7 +233,7 @@ void imprime_PMT() {
     for (int i = 0; i < N; i++) {
         PMT* auxp = pp[i];
         bool tieneDatos = false;
-        
+
         while (auxp != NULL) {
             if (auxp->marco != 0) {
                 tieneDatos = true;
@@ -241,15 +241,15 @@ void imprime_PMT() {
             }
             auxp = auxp->sig;
         }
-        
+
         if (tieneDatos) {
             cout << "\n=== PMT de la tarea " << i << " ===\n";
-            
+
             JT* auxjt = pjt;
             while (auxjt != NULL && auxjt->ntar != i) {
                 auxjt = auxjt->sig;
             }
-            
+
             if (auxjt != NULL) {
                 cout << "J" << i << ": Secuencia=[";
                 for (int j = 0; j < 8; j++) {
@@ -262,14 +262,14 @@ void imprime_PMT() {
             cout << "+----------+-------+---------+--------+-----------+-------------+\n";
             cout << "| No.Pag   | Marco | Local.i | Estado | Referenc. | Modificac. |\n";
             cout << "+----------+-------+---------+--------+-----------+-------------+\n";
-            
+
             auxp = pp[i];
             while (auxp != NULL) {
-                cout << "| " << setw(8) << auxp->pagina 
-                     << " | " << setw(5) << auxp->marco 
-                     << " | " << setw(7) << (auxp->marco * ma) 
-                     << " | " << setw(6) << auxp->estado 
-                     << " | " << setw(9) << auxp->referencia 
+                cout << "| " << setw(8) << auxp->pagina
+                     << " | " << setw(5) << auxp->marco
+                     << " | " << setw(7) << (auxp->marco * ma)
+                     << " | " << setw(6) << auxp->estado
+                     << " | " << setw(9) << auxp->referencia
                      << " | " << setw(11) << auxp->modificacion << " |\n";
                 auxp = auxp->sig;
             }
@@ -285,7 +285,7 @@ void asigna_pag(int ntar, int tam_tarea) {
     crearPMT(ntar, paginas_necesarias); // Crea la PMT para la tarea
 }
 
-int asigna_so(){
+void asigna_so(){
     int marcos_so = ceil((float)tso /ma); // Calcula los marcos necesarios para el SO
     int marcos_ocupados = 0;
     int inicio_so=0;
@@ -293,59 +293,60 @@ int asigna_so(){
 
     while (auxmmt != NULL && marcos_ocupados < marcos_so) {
         if (auxmmt->marco >= inicio_so && auxmmt->edo == 0) {
-            auxmmt->edo = 1; // Marco ocupado por el sistema operativo
+            auxmmt->edo = 0; // Marco ocupado por el sistema operativo
             marcos_ocupados++;
         }
         auxmmt = auxmmt->sig;
     }
-    return marcos_ocupados; // Devuelve cu?ntos marcos ha ocupado el SO
-} 
+    // return marcos_ocupados; // Devuelve cu?ntos marcos ha ocupado el SO
+}
 
 void asigna_paginas_con_secuencia() {
     auxjt = pjt;  // Iterador de la tabla de tareas
     auxmmt = pmmt; // Iterador de la MMT
 
     // Avanzar marcos hasta despu?s del sistema operativo (marcos ocupados por el SO)
-    while (auxmmt->edo == 1) {
+    while (auxmmt != NULL && auxmmt->edo == 1) {
         auxmmt = auxmmt->sig;
     }
 
     // Para cada tarea en la JT
     while (auxjt != NULL) {
-        fflush(stdin);
         int marcos_asignados = 0;  // Lleva el conteo de marcos asignados
-        std::vector<int> paginas_asignadas; // Vector din?mico para almacenar hasta 3 p?ginas ?nicas
-        paginas_asignadas.push_back(0); // La primera p?gina siempre es la 0
+        std::vector<int> paginas_asignadas; // Vector dinámico para almacenar hasta 3 páginas únicas
+        paginas_asignadas.push_back(0); // La primera página siempre es la 0
 
-        // Recorrer la secuencia y seleccionar hasta 3 p?ginas ?nicas
+        // Recorrer la secuencia y seleccionar hasta 3 páginas únicas
         for (int i = 1; i < 8 && paginas_asignadas.size() < 3; i++) {
             int pagina_actual = auxjt->secuencia[i];
 
-            // Verificar que la p?gina no est? ya en el vector
+            // Verificar que la página no esté ya en el vector
             if (std::find(paginas_asignadas.begin(), paginas_asignadas.end(), pagina_actual) == paginas_asignadas.end()) {
-                paginas_asignadas.push_back(pagina_actual); // Agregar la p?gina si no est? duplicada
+                paginas_asignadas.push_back(pagina_actual); // Agregar la página si no está duplicada
             }
         }
-        // Asignar marcos y localidades a las p?ginas seleccionadas
+
+        // Asignar marcos y localidades a las páginas seleccionadas
         for (int i = 0; i < paginas_asignadas.size(); i++) {
-            int pagina_logica = paginas_asignadas[i];  // P?gina l?gica a la que vamos a asignar un marco
+            int pagina_logica = paginas_asignadas[i];  // Página lógica a la que vamos a asignar un marco
             PMT* auxp = pp[auxjt->ntar];
 
-            // Buscar la entrada en la PMT que corresponda a esta p?gina l?gica
+            // Buscar la entrada en la PMT que corresponda a esta página lógica
             while (auxp != NULL && auxp->pagina != pagina_logica) {
                 auxp = auxp->sig;
             }
 
             // Si encontramos una entrada en la PMT y hay marcos disponibles en la MMT
             if (auxp != NULL && auxmmt != NULL && auxmmt->edo == 0) {
-                // Asignar el marco y la localidad f?sica
+                // Asignar el marco y la localidad física
                 auxp->marco = auxmmt->marco;
-                auxp->estado = 1;  // La p?gina ahora est? ocupada
-                auxmmt->edo = 1;  // El marco en la MMT est? ocupado
+                auxp->estado = 1;  // La página ahora está ocupada
+                auxmmt->edo = 1;  // El marco en la MMT está ocupado
                 auxmmt = auxmmt->sig;  // Pasar al siguiente marco libre en la MMT
                 marcos_asignados++;
             }
         }
+
         auxjt = auxjt->sig;  // Pasar a la siguiente tarea
     }
 }
@@ -353,12 +354,14 @@ void asigna_paginas_con_secuencia() {
 void inicializar_sistema() {
     srand(time(NULL));
     int marcos_totales = calc_marcos();
-    
+
     // Initialize Memory Management
     crearMMT(marcos_totales);
+    pmmt->edo=1;
+    imprime_MMT();
     asigna_so();
     crearJT();
-    
+
     // Create test processes and link them to memory tasks
     for(int i = 0; i < 5; i++) {
         nuevopcb = new PCB;
@@ -376,7 +379,7 @@ void inicializar_sistema() {
             qpcb->siguiente = nuevopcb;
             qpcb = nuevopcb;
         }
-        
+
         // Assign memory pages for this process in the pcb
         auxjt = pjt;
         while (auxjt != NULL && auxjt->ntar != i) {
@@ -386,7 +389,7 @@ void inicializar_sistema() {
             asigna_pag(auxjt->ntar, auxjt->tamtar);
         }
     }
-    
+
     asigna_paginas_con_secuencia();
 }
 void imprimirListaPCB() {
@@ -396,7 +399,7 @@ void imprimirListaPCB() {
 
     PCB* actual = ppcb;
     while (actual != NULL) {
-        cout << "| " << setw(8) << actual->proceso 
+        cout << "| " << setw(8) << actual->proceso
              << " | " << setw(9) << actual->tiempo_llegada << "t"
              << " | " << setw(6) << actual->ciclos << "ms"
              << " | " << setw(6) << actual->estado << " |\n";
@@ -424,19 +427,20 @@ void Round_robin() {
         while (actual != NULL) {
             if (actual->estado == 2) {
                 actual->estado = 3;
+                // system("cls");
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
 
                 for(int i = 0; i < ciclos_a_ejecutar; i++) {
-                    
+                    // system("cls");
                     cout << "\n=== ESTADO DEL SISTEMA ===\n";
                     imprimirListaPCB();
-                    
+
                     // Display memory information for current process
                     cout << "\n=== INFORMACION DE MEMORIA DEL PROCESO ===\n";
                     cout << "Proceso: " << actual->proceso << "\n";
                     cout << "Numero de tarea en memoria: " << actual->ntar << "\n";
-                    
+
                     // Show assigned pages
                     PMT* auxp = pp[actual->ntar];
                     if (auxp != NULL) {
@@ -448,10 +452,10 @@ void Round_robin() {
                             auxp = auxp->sig;
                         }
                     }
-                    
+
                     actual->ciclos--;
                     tiempo_total++;
-                    
+
                     cout << "\nCiclos restantes: " << actual->ciclos;
                     cout << "\nTiempo total: " << tiempo_total;
                     cout << "\n\nPresione cualquier tecla para continuar...";
@@ -487,6 +491,7 @@ void Round_robin() {
 
     } while (hayPendientes);
 
+    // Final statistics
     cout << "\n=== RESUMEN DE EJECUCION ===\n";
     cout << "Tiempo total: " << tiempo_total << " ms\n\n";
     cout << "Tiempos de retorno por proceso:\n";
@@ -494,14 +499,14 @@ void Round_robin() {
     actual = ppcb;
     float total_retorno = 0;
     int num_procesos = 0;
-    
+
     while (actual != NULL) {
         cout << actual->proceso << ": " << actual->tiempo_retorno << " ms\n";
         total_retorno += actual->tiempo_retorno;
         num_procesos++;
         actual = actual->siguiente;
     }
-    
+
     cout << "--------------------------------\n";
     cout << "Tiempo promedio de retorno: " << total_retorno/num_procesos << " ms\n";
 }
