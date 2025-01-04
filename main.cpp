@@ -16,12 +16,14 @@
 #define tso 20
 #define maxmem 50
 
-struct Interrupciones {
+struct Interrupciones
+{
     int codigo;
     std::string desc;
 } A[15];
 
-struct PCB {
+struct PCB
+{
     char proceso[20];
     int tiempo_llegada;
     int ciclos;
@@ -34,10 +36,11 @@ struct PCB {
     bool Interrpcion;
     int ciclos_transcurridos;
     int ntar;
-    PCB* siguiente;
+    PCB *siguiente;
 };
 
-struct PCBSemaforo {
+struct PCBSemaforo
+{
     char proceso[20];
     int tiempo_llegada;
     int ciclos;
@@ -50,45 +53,49 @@ struct PCBSemaforo {
     bool Interrpcion;
     int ciclos_transcurridos;
     int ntar;
-    PCBSemaforo* siguiente;
+    PCBSemaforo *siguiente;
 };
 
-struct MMT {
+struct MMT
+{
     int marco, loc;
     int edo;
-    MMT* sig;
+    MMT *sig;
 };
 
-struct MMTasig {
+struct MMTasig
+{
     int marco, loc;
     int edo;
-    MMTasig* sig;
+    MMTasig *sig;
 };
 
-struct JT {
+struct JT
+{
     int ntar;
     int tamtar;
     int lpmt;
     int secuencia[8];
-    JT* sig;
+    JT *sig;
 };
 
-struct PMT {
+struct PMT
+{
     int pagina;
     int marco;
     int estado;
     int referencia;
     int modificacion;
-    PMT* sig;
+    PMT *sig;
 };
 
 // Global pointers
-MMT* pmmt = NULL, * qmmt, * nuevommt, * auxmmt;
-MMTasig* pmmtasig = NULL, * qmmtasig, * nuevommtasig, * auxmmtasig;
-JT* pjt = NULL, * qjt, * nuevojt, * auxjt;
-PCB* ppcb = NULL, * qpcb, * nuevopcb, * auxpcb;
-PCBSemaforo* ppcbsem= NULL, * qpcbsem, * nuevopcbsem, * auxpcbsem;
-PMT* pp[N] = { NULL }, * qp[N], * nuevop[N], * auxp[N];
+MMT *pmmt = NULL, *qmmt, *nuevommt, *auxmmt;
+MMTasig *pmmtasig = NULL, *qmmtasig, *nuevommtasig, *auxmmtasig;
+JT *pjt = NULL, *qjt, *nuevojt, *auxjt;
+PCB *ppcb = NULL, *qpcb, *nuevopcb, *auxpcb;
+PCBSemaforo *ppcbsem = NULL, *qpcbsem, *nuevopcbsem, *auxpcbsem;
+PMT *pp[N] = {NULL}, *qp[N], *nuevop[N], *auxp[N];
 
 // Function prototypes
 void Crear_vector(Interrupciones A[]);
@@ -107,12 +114,13 @@ void asigna_paginas_con_secuencia();
 void imprimirListaPCB();
 void Round_robin();
 void inicializar_sistema();
-void manejador_interrupciones(PCB* process, Interrupciones A[], MMT* pmmt, PMT* pp[]);
-void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, PMT* pp[]);
-void CrearPCBSemaforo(); 
+void manejador_interrupciones(PCB *process, Interrupciones A[], MMT *pmmt, PMT *pp[]);
+void Round_robin_con_interrupciones(PCB *&ppcb, Interrupciones A[], MMT *pmmt, PMT *pp[]);
+void CrearPCBSemaforo();
 void ImprimirPCBSemaforo();
 
-int main() {
+int main()
+{
     srand(time(NULL));
     inicializar_sistema();
     Crear_vector(A);
@@ -123,16 +131,17 @@ int main() {
     imprime_MMTasig();
     imprime_PMT();
     imprimirListaPCB();
-     cout << "\n\nPresione cualquier tecla para continuar con round robin...";
-                    getch();
-    Round_robin_con_interrupciones(ppcb,A,pmmt,pp);
-    
+    cout << "\n\nPresione cualquier tecla para continuar con round robin...";
+    getch();
+    Round_robin_con_interrupciones(ppcb, A, pmmt, pp);
+
     cout << "\nPresione cualquier tecla para salir...";
     getch();
     return 0;
 }
 
-void Crear_vector(Interrupciones A[]) {
+void Crear_vector(Interrupciones A[])
+{
     A[0].codigo = 19;
     A[0].desc = "Obtener unidad de disco por defecto";
     A[1].codigo = 23;
@@ -164,74 +173,84 @@ void Crear_vector(Interrupciones A[]) {
     A[14].codigo = 3;
     A[14].desc = "Leer posicion del cursor";
 }
-void inicializar_sistema() {
+void inicializar_sistema()
+{
     /* Initialize random seed */
     srand(time(NULL));
     int marcos_totales = calc_marcos();
     cout << marcos_totales << endl;
-    
+
     /* Initialize Memory Management */
     crearMMT(marcos_totales);
     crearJT();
     crearMMTAsignado(marcos_totales);
 
-     // Asignaci?n de p?ginas para cada tarea basada en el tama?o de la tarea
+    // Asignaci?n de p?ginas para cada tarea basada en el tama?o de la tarea
     auxjt = pjt;
-    while (auxjt != NULL) {
+    while (auxjt != NULL)
+    {
         asigna_pag(auxjt->ntar, auxjt->tamtar);
         auxjt = auxjt->sig;
     }
-   asigna_paginas_con_secuencia(); 
-
+    asigna_paginas_con_secuencia();
 
     /* Create test processes and link them to memory tasks */
     int proceso_count = 0;
     auxjt = pjt;
-    
-    while (auxjt != NULL && proceso_count < 5) {
+
+    while (auxjt != NULL && proceso_count < 5)
+    {
         int i;
-        for (i = 0; i < 5 && proceso_count < 5; i++) {  /* Max 5 processes per task */
+        for (i = 0; i < 5 && proceso_count < 5; i++)
+        { /* Max 5 processes per task */
             nuevopcb = new PCB;
             /* Clear memory first */
             memset(nuevopcb, 0, sizeof(PCB));
-            
+
             char temp[20];
-            sprintf(temp, "J%dP%d", proceso_count + 1, i);  /* Format: J1P0, J1P1, etc. */
+            sprintf(temp, "J%dP%d", proceso_count + 1, i); /* Format: J1P0, J1P1, etc. */
             strcpy(nuevopcb->proceso, temp);
-            
+
             nuevopcb->tiempo_llegada = proceso_count;
             nuevopcb->ciclos = 2 + rand() % 6;
             nuevopcb->estado = 1;
             nuevopcb->ntar = proceso_count;
             nuevopcb->CicInt = rand() % 3;
-            nuevopcb->Interrpcion = rand() % 2;  /* Random 0 or 1 */
+            nuevopcb->Interrpcion = rand() % 2; /* Random 0 or 1 */
             nuevopcb->ciclos_transcurridos = 0;
-            
-            if (nuevopcb->Interrpcion) {
-                nuevopcb->CodInt = rand() % 14;  /* Random interrupt code */
+
+            if (nuevopcb->Interrpcion)
+            {
+                nuevopcb->CodInt = rand() % 14; /* Random interrupt code */
                 nuevopcb->IniInt = 2 + rand() % (nuevopcb->ciclos - 1);
                 nuevopcb->Duracion = 1 + rand() % 3;
-            } else {
+            }
+            else
+            {
                 nuevopcb->IniInt = 0;
                 nuevopcb->CodInt = -1;
                 nuevopcb->Duracion = 0;
             }
-            
+
             nuevopcb->siguiente = NULL;
 
-            if (ppcb == NULL) {
+            if (ppcb == NULL)
+            {
                 ppcb = nuevopcb;
                 qpcb = ppcb;
-            } else {
+            }
+            else
+            {
                 qpcb->siguiente = nuevopcb;
                 qpcb = nuevopcb;
             }
 
             /* Assign memory pages for this process */
-            if (auxjt != NULL) {
+            if (auxjt != NULL)
+            {
                 asigna_pag(auxjt->ntar, auxjt->tamtar);
             }
-            
+
             proceso_count++;
         }
         auxjt = auxjt->sig;
@@ -240,21 +259,27 @@ void inicializar_sistema() {
     asigna_paginas_con_secuencia();
 }
 
-int calc_marcos() {
+int calc_marcos()
+{
     return (mem * 1024) / ma;
 }
 
-void crearMMT(int a) {
+void crearMMT(int a)
+{
     int mar = 0;
-    while (mar != a) {
-        if (pmmt == NULL) {
+    while (mar != a)
+    {
+        if (pmmt == NULL)
+        {
             pmmt = new MMT;
             pmmt->marco = mar;
             pmmt->loc = mar * ma;
             pmmt->edo = 0;
             pmmt->sig = NULL;
             qmmt = pmmt;
-        } else {
+        }
+        else
+        {
             nuevommt = new MMT;
             nuevommt->marco = mar;
             nuevommt->loc = mar * ma;
@@ -267,17 +292,22 @@ void crearMMT(int a) {
     }
 }
 
-void crearMMTAsignado(int a) {
+void crearMMTAsignado(int a)
+{
     int marasig = 0;
-    while (marasig != a) {
-        if (pmmtasig == NULL) {
+    while (marasig != a)
+    {
+        if (pmmtasig == NULL)
+        {
             pmmtasig = new MMTasig;
             pmmtasig->marco = marasig;
             pmmtasig->loc = marasig * ma;
             pmmtasig->edo = 1;
             pmmtasig->sig = NULL;
             qmmtasig = pmmtasig;
-        } else {
+        }
+        else
+        {
             nuevommtasig = new MMTasig;
             nuevommtasig->marco = marasig;
             nuevommtasig->loc = marasig * ma;
@@ -290,12 +320,15 @@ void crearMMTAsignado(int a) {
     }
 }
 
-void crearPMT(int ntar, int npaginas) {
+void crearPMT(int ntar, int npaginas)
+{
     auxmmt = pmmt;
     pp[ntar] = NULL;
 
-    for (int i = 0; i < npaginas; i++) {
-        if (pp[ntar] == NULL) {
+    for (int i = 0; i < npaginas; i++)
+    {
+        if (pp[ntar] == NULL)
+        {
             pp[ntar] = new PMT;
             pp[ntar]->pagina = i;
             pp[ntar]->marco = 0;
@@ -304,7 +337,9 @@ void crearPMT(int ntar, int npaginas) {
             pp[ntar]->modificacion = 0;
             pp[ntar]->sig = NULL;
             qp[ntar] = pp[ntar];
-        } else {
+        }
+        else
+        {
             nuevop[ntar] = new PMT;
             nuevop[ntar]->pagina = i;
             nuevop[ntar]->marco = 0;
@@ -318,31 +353,39 @@ void crearPMT(int ntar, int npaginas) {
     }
 }
 
-void crearJT() {
+void crearJT()
+{
     float tamanios_en_lineas[N];
-    for(int i = 0; i < N; i++) {
+    for (int i = 0; i < N; i++)
+    {
         tamanios_en_lineas[i] = 120 + rand() % 450;
     }
-    
-    for (int i = 0; i < N; i++) {
-        if (pjt == NULL) {
+
+    for (int i = 0; i < N; i++)
+    {
+        if (pjt == NULL)
+        {
             pjt = new JT;
             pjt->ntar = i;
             pjt->tamtar = tamanios_en_lineas[i];
             pjt->lpmt = ceil((float)tamanios_en_lineas[i] / lineas);
             pjt->secuencia[0] = 0;
-            for(int j = 1; j < 9; j++) {
+            for (int j = 1; j < 9; j++)
+            {
                 pjt->secuencia[j] = rand() % pjt->lpmt;
             }
             pjt->sig = NULL;
             qjt = pjt;
-        } else {
+        }
+        else
+        {
             nuevojt = new JT;
             nuevojt->ntar = i;
             nuevojt->tamtar = tamanios_en_lineas[i];
             nuevojt->lpmt = ceil((float)tamanios_en_lineas[i] / lineas);
             nuevojt->secuencia[0] = 0;
-            for(int j = 1; j < 9; j++) {
+            for (int j = 1; j < 9; j++)
+            {
                 nuevojt->secuencia[j] = rand() % nuevojt->lpmt;
             }
             nuevojt->sig = NULL;
@@ -352,13 +395,15 @@ void crearJT() {
     }
 }
 
-void imprime_MMT() {
+void imprime_MMT()
+{
     cout << "\n+----------+-----------+-------+\n";
     cout << "| No.Marco | Local.i   | Estado|\n";
     cout << "+----------+-----------+-------+\n";
-    
+
     auxmmt = pmmt;
-    while (auxmmt != NULL) {
+    while (auxmmt != NULL)
+    {
         cout << "| " << setw(8) << auxmmt->marco
              << " | " << setw(9) << auxmmt->loc
              << " | " << setw(5) << auxmmt->edo << " |\n";
@@ -367,13 +412,15 @@ void imprime_MMT() {
     cout << "+----------+-----------+-------+\n";
 }
 
-void imprime_MMTasig() {
+void imprime_MMTasig()
+{
     cout << "\n+----------+-----------+-------+\n";
     cout << "| No.Marco | Local.i   | Estado|\n";
     cout << "+----------+-----------+-------+\n";
-    
+
     auxmmtasig = pmmtasig;
-    while (auxmmtasig != NULL) {
+    while (auxmmtasig != NULL)
+    {
         cout << "| " << setw(8) << auxmmtasig->marco
              << " | " << setw(9) << auxmmtasig->loc
              << " | " << setw(5) << auxmmtasig->edo << " |\n";
@@ -382,22 +429,25 @@ void imprime_MMTasig() {
     cout << "+----------+-----------+-------+\n";
 }
 
-
-void imprime_JT() {
+void imprime_JT()
+{
     cout << "\n+----------+----------+----------+-----------------+\n";
     cout << "| No.Tarea | Lineas   | Loc.PMT  | Secuencia      |\n";
     cout << "+----------+----------+----------+-----------------+\n";
 
     auxjt = pjt;
-    while (auxjt != NULL) {
+    while (auxjt != NULL)
+    {
         cout << "| J" << setw(7) << auxjt->ntar
              << " | " << setw(8) << auxjt->tamtar
              << " | " << setw(8) << "101" << auxjt->ntar
              << " | [";
-        
-        for(int i = 0; i < 8; i++) {        
+
+        for (int i = 0; i < 8; i++)
+        {
             cout << "P" << auxjt->secuencia[i];
-            if(i < 7) cout << " ";
+            if (i < 7)
+                cout << " ";
         }
         cout << "] |\n";
         auxjt = auxjt->sig;
@@ -405,19 +455,24 @@ void imprime_JT() {
     cout << "+----------+----------+----------+-----------------+\n";
 }
 
-void imprime_PMT() {
-    for (int i = 0; i < N; i++) {
-        if (pp[i] == NULL) { // Verificar si la PMT existe
+void imprime_PMT()
+{
+    for (int i = 0; i < N; i++)
+    {
+        if (pp[i] == NULL)
+        { // Verificar si la PMT existe
             cout << "PMT para la tarea J" << i << " no fue creada.\n";
             continue;
         }
 
-        PMT* auxp = pp[i];
+        PMT *auxp = pp[i];
         bool tieneDatos = false;
 
         // Verificar si la PMT tiene datos relevantes
-        while (auxp != NULL) {
-            if (auxp->marco != 0) {
+        while (auxp != NULL)
+        {
+            if (auxp->marco != 0)
+            {
                 tieneDatos = true;
                 break;
             }
@@ -426,19 +481,25 @@ void imprime_PMT() {
 
         cout << "\n=== PMT de la tarea " << i << " ===\n";
 
-        JT* auxjt = pjt;
-        while (auxjt != NULL && auxjt->ntar != i) {
+        JT *auxjt = pjt;
+        while (auxjt != NULL && auxjt->ntar != i)
+        {
             auxjt = auxjt->sig;
         }
 
-        if (auxjt != NULL) {
+        if (auxjt != NULL)
+        {
             cout << "J" << i << ": Secuencia=[";
-            for (int j = 0; j < 8; j++) {
+            for (int j = 0; j < 8; j++)
+            {
                 cout << "P" << auxjt->secuencia[j];
-                if (j < 7) cout << " ";
+                if (j < 7)
+                    cout << " ";
             }
             cout << "]\n\n";
-        } else {
+        }
+        else
+        {
             cout << "Error: No se encontró tarea J" << i << " en la lista de tareas.\n";
         }
 
@@ -447,7 +508,8 @@ void imprime_PMT() {
         cout << "+----------+-------+---------+--------+-----------+-------------+\n";
 
         auxp = pp[i]; // Reiniciar para recorrer la lista
-        while (auxp != NULL) {
+        while (auxp != NULL)
+        {
             cout << "| " << setw(8) << auxp->pagina
                  << " | " << setw(5) << auxp->marco
                  << " | " << setw(7) << (auxp->marco * ma)
@@ -460,19 +522,22 @@ void imprime_PMT() {
     }
 }
 
-
-void asigna_pag(int ntar, int tam_tarea) {
+void asigna_pag(int ntar, int tam_tarea)
+{
     int paginas_necesarias = ceil((float)tam_tarea / lineas);
     crearPMT(ntar, paginas_necesarias);
 }
 
-void asigna_so() {
+void asigna_so()
+{
     int marcos_so = ceil((float)tso / ma);
     int marcos_ocupados = 0;
     auxmmt = pmmt;
 
-    while (auxmmt != NULL && marcos_ocupados < marcos_so) {
-        if (auxmmt->edo == 0) {
+    while (auxmmt != NULL && marcos_ocupados < marcos_so)
+    {
+        if (auxmmt->edo == 0)
+        {
             auxmmt->edo = 1;
             marcos_ocupados++;
         }
@@ -480,50 +545,60 @@ void asigna_so() {
     }
 }
 
-void asigna_paginas_con_secuencia() {
+void asigna_paginas_con_secuencia()
+{
     // Primero, asignar el marco del SO
     auxmmt = pmmt;
-    if (auxmmt != NULL) {
-        auxmmt->edo = 1;  // Marco para SO
-        auxmmt = auxmmt->sig;  // Mover al siguiente marco disponible después del SO
+    if (auxmmt != NULL)
+    {
+        auxmmt->edo = 1;      // Marco para SO
+        auxmmt = auxmmt->sig; // Mover al siguiente marco disponible después del SO
     }
 
     // Comenzar la asignación de páginas después del marco del SO
     auxjt = pjt;
 
-    while (auxjt != NULL) {
+    while (auxjt != NULL)
+    {
         int marcos_asignados = 0;
         std::vector<int> paginas_asignadas;
-        paginas_asignadas.push_back(0);  // Siempre comenzar con P0
+        paginas_asignadas.push_back(0); // Siempre comenzar con P0
 
         // Recolectar páginas únicas de la secuencia
-        for (int i = 1; i < 8 && paginas_asignadas.size() < 3; i++) {
+        for (int i = 1; i < 8 && paginas_asignadas.size() < 3; i++)
+        {
             int pagina_actual = auxjt->secuencia[i];
-            if (std::find(paginas_asignadas.begin(), paginas_asignadas.end(), pagina_actual) == paginas_asignadas.end()) {
+            if (std::find(paginas_asignadas.begin(), paginas_asignadas.end(), pagina_actual) == paginas_asignadas.end())
+            {
                 paginas_asignadas.push_back(pagina_actual);
             }
         }
 
         // Asignar marcos a las páginas recolectadas
-        for (size_t i = 0; i < paginas_asignadas.size() && auxmmt != NULL; i++) {
+        for (size_t i = 0; i < paginas_asignadas.size() && auxmmt != NULL; i++)
+        {
             int pagina_logica = paginas_asignadas[i];
-            PMT* auxp = pp[auxjt->ntar];
+            PMT *auxp = pp[auxjt->ntar];
 
             // Encontrar la página correcta en la PMT
-            while (auxp != NULL && auxp->pagina != pagina_logica) {
+            while (auxp != NULL && auxp->pagina != pagina_logica)
+            {
                 auxp = auxp->sig;
             }
 
-            if (auxp != NULL && auxmmt != NULL && auxmmt->edo == 0) {
+            if (auxp != NULL && auxmmt != NULL && auxmmt->edo == 0)
+            {
                 auxp->marco = auxmmt->marco;
                 auxp->estado = 1;
                 // La localidad inicial es el marco * 64 (tamaño del marco)
                 int localidad_inicial = auxp->marco * 64;
-                
+
                 // Asignar la información a la PCB correspondiente
-                PCB* auxpcb = ppcb;
-                while (auxpcb != NULL) {
-                    if (auxpcb->ntar == auxjt->ntar) {
+                PCB *auxpcb = ppcb;
+                while (auxpcb != NULL)
+                {
+                    if (auxpcb->ntar == auxjt->ntar)
+                    {
                         // Aquí podrías agregar la información del marco y localidad
                         // a la PCB si es necesario
                         break;
@@ -539,24 +614,26 @@ void asigna_paginas_con_secuencia() {
     }
 }
 
-void imprimirListaPCB() {
+void imprimirListaPCB()
+{
     cout << endl;
     cout << "\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
     cout << "-------------------------------------------------------------------------------------------------" << endl;
     cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      CPU-E/S     |Ini.Int|Duracion|Interr.|" << endl;
     cout << "-------------------------------------------------------------------------------------------------" << endl;
 
-    PCB* actual = ppcb;
-    while (actual != NULL) {
+    PCB *actual = ppcb;
+    while (actual != NULL)
+    {
         // Imprimir el proceso si no tiene interrupción activa
         cout << actual->proceso
              << "\t\t" << actual->tiempo_llegada << "t"
              << "\t\t" << actual->ciclos << "ms"
              << "\t\t" << actual->estado;
-            if(actual->Interrpcion==true)
-                cout<<"\t    E/S";
-             else if(actual->Interrpcion==false)
-                cout<<"\t    CPU";
+        if (actual->Interrpcion == true)
+            cout << "\t    E/S";
+        else if (actual->Interrpcion == false)
+            cout << "\t    CPU";
         cout << "\t\t   " << actual->IniInt
              << "\t   " << actual->Duracion
              << "\t   " << actual->CodInt
@@ -567,22 +644,27 @@ void imprimirListaPCB() {
     cout << "-------------------------------------------------------------------------------------------------" << endl;
 }
 
-void manejador_interrupciones(PCB* process, Interrupciones A[], MMT* pmmt, PMT* pp[]) {
+void manejador_interrupciones(PCB *process, Interrupciones A[], MMT *pmmt, PMT *pp[])
+{
     // system("cls");
     cout << "\n=== MANEJADOR DE INTERRUPCIONES ===\n";
     cout << "Codigo de interrupcion: " << process->CodInt << endl;
     cout << "Proceso: " << process->proceso << endl;
     cout << "Error encontrado en el tiempo: " << process->IniInt << endl;
     cout << "Descripcion: " << A[process->CodInt].desc << endl;
-    
+
     // Liberar memoria asignada al proceso
-    PMT* auxp = pp[process->ntar];
-    while (auxp != NULL) {
-        if (auxp->estado == 1) {
+    PMT *auxp = pp[process->ntar];
+    while (auxp != NULL)
+    {
+        if (auxp->estado == 1)
+        {
             // Encontrar el marco correspondiente en MMT y liberarlo
-            MMT* auxmmt = pmmt;
-            while (auxmmt != NULL) {
-                if (auxmmt->marco == auxp->marco) {
+            MMT *auxmmt = pmmt;
+            while (auxmmt != NULL)
+            {
+                if (auxmmt->marco == auxp->marco)
+                {
                     auxmmt->edo = 0; // Liberar el marco
                     break;
                 }
@@ -593,105 +675,118 @@ void manejador_interrupciones(PCB* process, Interrupciones A[], MMT* pmmt, PMT* 
         }
         auxp = auxp->sig;
     }
-    
+
     cout << "\nMemoria liberada para el proceso interrumpido\n";
     cout << "\nPresione cualquier tecla para continuar...";
     getch();
 }
 
-void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, PMT* pp[]) {
-    PCB* actual;
+void Round_robin_con_interrupciones(PCB *&ppcb, Interrupciones A[], MMT *pmmt, PMT *pp[])
+{
+    PCB *actual;
     int tiempo_total = 0;
     actual = ppcb;
 
     /* Initialize all processes to Ready state */
-    while (actual != NULL) {
-        actual->estado = 2;  /* Set to Ready state */
+    while (actual != NULL)
+    {
+        actual->estado = 2; /* Set to Ready state */
         actual = actual->siguiente;
     }
 
-    int hayPendientes;  /* Changed from bool to int for C++98 */
-    int mostrarInterrupcion = 0;  /* Changed from bool to int */
-    PCB* procesoInterrumpido = NULL;
-    PCB* anterior = NULL;
+    int hayPendientes;           /* Changed from bool to int for C++98 */
+    int mostrarInterrupcion = 0; /* Changed from bool to int */
+    PCB *procesoInterrumpido = NULL;
+    PCB *anterior = NULL;
 
-    do {
+    do
+    {
         hayPendientes = 0;
         actual = ppcb;
         anterior = NULL;
 
-        while (actual != NULL) {
-            if (actual->estado == 2) {  /* If process is Ready */
-                actual->estado = 3;  /* Set to Running */
-                clrscr();  /* Borland specific */
+        while (actual != NULL)
+        {
+            if (actual->estado == 2)
+            {                       /* If process is Ready */
+                actual->estado = 3; /* Set to Running */
+                clrscr();           /* Borland specific */
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
                 int cont = 0;
 
-                while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
-                    clrscr();  /* Borland specific */
+                while (cont < ciclos_a_ejecutar && actual->ciclos > 0)
+                {
+                    clrscr(); /* Borland specific */
                     cout << "\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
                     cout << "-------------------------------------------------------------------------------------------------\n";
                     cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      CPU-E/S     |Ini.Int|Duracion|Interr.|\n";
                     cout << "-------------------------------------------------------------------------------------------------\n";
-                   
-                    PCB* listaE_S = NULL;  // Puntero para procesos de E/S
-                    PCB* finE_S = NULL;    // Puntero al final de la lista de E/S
+
+                    PCB *listaE_S = NULL; // Puntero para procesos de E/S
+                    PCB *finE_S = NULL;   // Puntero al final de la lista de E/S
                     /* Display current state of all processes */
-                    PCB* temp = ppcb;
+                    PCB *temp = ppcb;
                     int contador = 0; // para saber cuando llegue al # de ciclos del quantum
-                    while (temp != NULL) {
+                    while (temp != NULL)
+                    {
                         cout << temp->proceso;
                         cout << "\t\t" << temp->tiempo_llegada << "t";
                         cout << "\t\t" << temp->ciclos << "ms";
                         cout << "\t\t" << temp->estado;
-                        
-                           if (temp->Interrpcion) { // Si es un proceso de E/S
-        cout << "\t    E/S";
 
-        // Incrementar el contador
-        contador++;
+                        if (temp->Interrpcion)
+                        { // Si es un proceso de E/S
+                            cout << "\t    E/S";
 
-        // Si el contador alcanza el quantum, se envía a PCBSemaforo
-        if (contador == quantum) {
-            // Crear y agregar a la lista PCBSemaforo
-            nuevopcbsem = new PCBSemaforo;
-            strcpy(nuevopcbsem->proceso, temp->proceso);
-            nuevopcbsem->tiempo_llegada = temp->tiempo_llegada;
-            nuevopcbsem->ciclos = temp->ciclos;
-            nuevopcbsem->estado = temp->estado;
-            nuevopcbsem->CicInt = temp->CicInt;
-            nuevopcbsem->IniInt = temp->IniInt;
-            nuevopcbsem->CodInt = temp->CodInt;
-            nuevopcbsem->Duracion = temp->Duracion;
-            nuevopcbsem->tiempo_retorno = temp->tiempo_retorno;
-            nuevopcbsem->Interrpcion = temp->Interrpcion;
-            nuevopcbsem->ciclos_transcurridos = temp->ciclos_transcurridos;
-            nuevopcbsem->ntar = temp->ntar;
-            nuevopcbsem->siguiente = NULL;
+                            // Incrementar el contador
+                            contador++;
 
-            if (ppcbsem == NULL) { // Lista vacía
-                ppcbsem = nuevopcbsem;
-                qpcbsem = nuevopcbsem;
-            } else { // Agregar al final
-                qpcbsem->siguiente = nuevopcbsem;
-                qpcbsem = nuevopcbsem;
-            }
+                            // Si el contador alcanza el quantum, se envía a PCBSemaforo
+                            if (contador == quantum)
+                            {
+                                // Crear y agregar a la lista PCBSemaforo
+                                nuevopcbsem = new PCBSemaforo;
+                                strcpy(nuevopcbsem->proceso, temp->proceso);
+                                nuevopcbsem->tiempo_llegada = temp->tiempo_llegada;
+                                nuevopcbsem->ciclos = temp->ciclos;
+                                nuevopcbsem->estado = temp->estado;
+                                nuevopcbsem->CicInt = temp->CicInt;
+                                nuevopcbsem->IniInt = temp->IniInt;
+                                nuevopcbsem->CodInt = temp->CodInt;
+                                nuevopcbsem->Duracion = temp->Duracion;
+                                nuevopcbsem->tiempo_retorno = temp->tiempo_retorno;
+                                nuevopcbsem->Interrpcion = temp->Interrpcion;
+                                nuevopcbsem->ciclos_transcurridos = temp->ciclos_transcurridos;
+                                nuevopcbsem->ntar = temp->ntar;
+                                nuevopcbsem->siguiente = NULL;
 
-            // Reiniciar el contador despues de mandar al semafotro
-            contador = 0;
-        }
-        ImprimirPCBSemaforo();
+                                if (ppcbsem == NULL)
+                                { // Lista vacía
+                                    ppcbsem = nuevopcbsem;
+                                    qpcbsem = nuevopcbsem;
+                                }
+                                else
+                                { // Agregar al final
+                                    qpcbsem->siguiente = nuevopcbsem;
+                                    qpcbsem = nuevopcbsem;
+                                }
 
-    } else {
-        cout << "\t    CPU";
-    }
-                        
+                                // Reiniciar el contador despues de mandar al semafotro
+                                contador = 0;
+                            }
+                            ImprimirPCBSemaforo();
+                        }
+                        else
+                        {
+                            cout << "\t    CPU";
+                        }
+
                         cout << "\t\t   " << temp->IniInt;
                         cout << "\t   " << temp->Duracion;
                         cout << "\t   " << temp->CodInt;
                         cout << "\n";
-                        
+
                         temp = temp->siguiente;
                     }
                     cout << "-------------------------------------------------------------------------------------------------\n";
@@ -702,8 +797,9 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                     actual->ciclos_transcurridos++;
 
                     /* Check for interruption */
-                    if (actual->Interrpcion && 
-                        actual->ciclos_transcurridos == actual->IniInt) {
+                    if (actual->Interrpcion &&
+                        actual->ciclos_transcurridos == actual->IniInt)
+                    {
                         mostrarInterrupcion = 1;
                         procesoInterrumpido = actual;
                         break;
@@ -713,23 +809,28 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                     cout << "\nCiclos restantes: " << actual->ciclos;
                     cout << "\nTiempo total: " << tiempo_total;
                     cout << "\n\nPresione cualquier tecla para continuar...";
-                    getch();  /* Borland specific */
+                    getch(); /* Borland specific */
                 }
 
-                if (mostrarInterrupcion) {
+                if (mostrarInterrupcion)
+                {
                     clrscr();
                     cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt;
                     cout << "\nError encontrado en " << procesoInterrumpido->proceso;
                     cout << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt;
                     cout << "\nDescripcion: " << A[procesoInterrumpido->CodInt].desc;
-                    
+
                     /* Liberar memoria asignada al proceso */
-                    PMT* auxp = pp[procesoInterrumpido->ntar];
-                    while (auxp != NULL) {
-                        if (auxp->estado == 1) {
-                            MMT* auxmmt = pmmt;
-                            while (auxmmt != NULL) {
-                                if (auxmmt->marco == auxp->marco) {
+                    PMT *auxp = pp[procesoInterrumpido->ntar];
+                    while (auxp != NULL)
+                    {
+                        if (auxp->estado == 1)
+                        {
+                            MMT *auxmmt = pmmt;
+                            while (auxmmt != NULL)
+                            {
+                                if (auxmmt->marco == auxp->marco)
+                                {
                                     auxmmt->edo = 0;
                                     break;
                                 }
@@ -740,31 +841,37 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
                         }
                         auxp = auxp->sig;
                     }
-                    
+
                     cout << "\n\nPresione cualquier tecla para continuar...";
                     getch();
-                    
+
                     /* Remove interrupted process from list */
-                    if (procesoInterrumpido == ppcb) {
+                    if (procesoInterrumpido == ppcb)
+                    {
                         ppcb = ppcb->siguiente;
-                    } else {
+                    }
+                    else
+                    {
                         anterior->siguiente = procesoInterrumpido->siguiente;
                     }
-                    
+
                     delete procesoInterrumpido;
                     mostrarInterrupcion = 0;
                     actual = (anterior != NULL) ? anterior->siguiente : ppcb;
                     continue;
                 }
 
-                if (actual->ciclos == 0) {
-                    actual->estado = 5;  /* Finished */
+                if (actual->ciclos == 0)
+                {
+                    actual->estado = 5; /* Finished */
                     actual->tiempo_retorno = tiempo_total - actual->tiempo_llegada;
-                } else {
-                    actual->estado = 4;  /* Blocked */
+                }
+                else
+                {
+                    actual->estado = 4; /* Blocked */
                 }
             }
-            
+
             anterior = actual;
             actual = actual->siguiente;
         }
@@ -772,8 +879,10 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
         /* Check for pending processes */
         actual = ppcb;
         hayPendientes = 0;
-        while (actual != NULL) {
-            if (actual->estado == 2 || actual->estado == 4) {
+        while (actual != NULL)
+        {
+            if (actual->estado == 2 || actual->estado == 4)
+            {
                 hayPendientes = 1;
                 break;
             }
@@ -782,8 +891,10 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
 
         /* Reset blocked processes to ready */
         actual = ppcb;
-        while (actual != NULL) {
-            if (actual->estado == 4) {
+        while (actual != NULL)
+        {
+            if (actual->estado == 4)
+            {
                 actual->estado = 2;
             }
             actual = actual->siguiente;
@@ -798,12 +909,13 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
     cout << "-----------------------------------------\n";
     cout << "| Proceso | Tiempo de Retorno (ms) |\n";
     cout << "-----------------------------------------\n";
-    
+
     actual = ppcb;
     float total_retorno = 0;
     int num_procesos = 0;
 
-    while (actual != NULL) {
+    while (actual != NULL)
+    {
         cout << "| " << actual->proceso << "\t|\t" << actual->tiempo_retorno << " ms |\n";
         total_retorno += actual->tiempo_retorno;
         num_procesos++;
@@ -811,23 +923,24 @@ void Round_robin_con_interrupciones(PCB* &ppcb, Interrupciones A[], MMT* pmmt, P
     }
 
     cout << "-----------------------------------------\n";
-    if (num_procesos > 0) {
+    if (num_procesos > 0)
+    {
         float promedio = total_retorno / num_procesos;
         cout << "Tiempo de retorno promedio: " << promedio << " ms\n";
     }
     cout << "Tiempo total de ejecucion: " << tiempo_total << " ms\n\n";
 }
 
-
-
-void ImprimirPCBSemaforo() {
+void ImprimirPCBSemaforo()
+{
     cout << "\n=== Lista de Procesos en PCBSemaforo ===\n";
     cout << "-------------------------------------------------------------------------------------------------\n";
     cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      E/S      |Ini.Int|Duracion|Interr.|\n";
     cout << "-------------------------------------------------------------------------------------------------\n";
 
     auxpcbsem = ppcbsem; // Puntero auxiliar para recorrer la lista
-    while (auxpcbsem != NULL) {
+    while (auxpcbsem != NULL)
+    {
         cout << auxpcbsem->proceso;
         cout << "\t\t" << auxpcbsem->tiempo_llegada << "t";
         cout << "\t\t" << auxpcbsem->ciclos << "ms";
