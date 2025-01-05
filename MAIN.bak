@@ -479,7 +479,7 @@ void Round_robin() {
 
         while (actual != NULL) {
             if (actual->estado == 2) {
-                actual->estado = 3; // 3 significa 'Ejecutando'                    º
+                actual->estado = 3; // 3 significa 'Ejecutando'
                 system("cls");
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
