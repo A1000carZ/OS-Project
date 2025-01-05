@@ -90,6 +90,7 @@ void asigna_paginas_con_secuencia();
 void crearPCB();
 void imprime_PCB();
 void ImprimirPCBSemaforo();
+void imprimePCBFiltrado(PCB* ppcb);
 void Round_robin();
 void Crear_vector(Interrupciones A[]);
 
@@ -437,7 +438,7 @@ void imprime_PCB() {
              << "\t   " << actual->CodInt
              << endl;
 
-        actual = actual->sig; // Avanzar al siguiente proceso
+        actual = actual->sig;
     }
     cout << "----------------------------------------------------------------------------------------------------------------" << endl;
 }
@@ -464,6 +465,35 @@ void ImprimirPCBSemaforo() {
         auxpcbsem = auxpcbsem->siguiente;
     }
     cout << "-------------------------------------------------------------------------------------------------\n";
+}
+
+void imprimePCBFiltrado(PCB* ppcb) {
+    cout << "\n\n\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
+    cout << "-----------------------------------------------------------------------------------------------------------------" << endl;
+    cout << "|Proceso|    T. Llegada    |  Localidad  |    Ciclos    |    Estado    |   CPU-E/S     |Ini.Int|Duracion|Interr.|" << endl;
+    cout << "-----------------------------------------------------------------------------------------------------------------" << endl;
+
+    PCB* actual = ppcb;
+    while (actual != NULL) {
+       
+        if (actual->cpu_es != 1 && actual->estado != 4) {
+            cout << actual->proceso
+                 << "\t\t" << actual->tiempo_llegada << "t"
+                 << "\t\t" << actual->localidad_i << "kb"
+                 << "\t\t" << actual->ciclos << "ms"
+                 << "\t\t" << actual->estado;
+            if(actual->Interrupcion)
+                cout<<"\t    E/S";
+            else
+                cout<<"\t    CPU";
+            cout << "\t\t   " << actual->IniInt
+                 << "\t   " << actual->Duracion
+                 << "\t   " << actual->CodInt
+                 << endl;
+        }
+        actual = actual->sig;
+    }
+    cout << "-----------------------------------------------------------------------------------------------------------------" << endl;
 }
 
 void Crear_vector(Interrupciones A[]){
@@ -514,26 +544,24 @@ void Round_robin() {
     bool hayPendientes;
     bool mostrarInterrupcion = false;
     PCB* procesoInterrumpido = NULL;
-    PCB* anterior = NULL;
 
     do {
         hayPendientes = false;
         actual = ppcb;
-        anterior = NULL;
 
         while (actual != NULL) {
             if (actual->estado == 2) {
                 actual->estado = 3; // Set to Running
-                system("cls");
+                clrscr(); // Borland's clear screen function
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
                 int cont = 0;
 
                 while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
-                    system("cls");
+                    clrscr();
                     
-                    // Check if process is E/S type and should be moved to PCB Semaphore
-                    if (actual->cpu_es == 1) { // E/S process
+                    // Check if process is E/S type
+                    if (actual->cpu_es == 1) {
                         // Create new PCB Semaphore entry
                         nuevopcbsem = new PCBSemaforo;
                         strcpy(nuevopcbsem->proceso, actual->proceso);
@@ -557,21 +585,13 @@ void Round_robin() {
                             qpcbsem->siguiente = nuevopcbsem;
                             qpcbsem = nuevopcbsem;
                         }
-
-                        // Remove from main PCB list
-                        if (anterior == NULL) {
-                            ppcb = actual->sig;
-                        } else {
-                            anterior->sig = actual->sig;
-                        }
-                        PCB* temp = actual;
-                        actual = actual->sig;
-                        delete temp;
-                        continue;
+                        
+                        // Set state to 4 to hide it
+                        actual->estado = 4;
                     }
 
-                    // Print current PCB state (excluding E/S processes)
-                    imprime_PCB();
+                    // Print filtered PCB state
+                    imprimePCBFiltrado(ppcb);
                     
                     // Print PCB Semaphore state
                     if (ppcbsem != NULL) {
@@ -586,28 +606,46 @@ void Round_robin() {
 
                     // Process PCB Semaphore processes simultaneously
                     PCBSemaforo* semActual = ppcbsem;
-                    PCBSemaforo* semAnterior = NULL;
-                    
                     while (semActual != NULL) {
                         semActual->ciclos--;
-                        
                         if (semActual->ciclos <= 0) {
-                            // Remove completed E/S process
-                            if (semAnterior == NULL) {
-                                ppcbsem = semActual->siguiente;
-                            } else {
-                                semAnterior->siguiente = semActual->siguiente;
+                            // Process completed in PCB Semaphore
+                            // Find corresponding process in main PCB and update its state
+                            PCB* mainProcess = ppcb;
+                            while (mainProcess != NULL) {
+                                if (strcmp(mainProcess->proceso, semActual->proceso) == 0) {
+                                    mainProcess->estado = 5; // Mark as completed
+                                    mainProcess->ciclos = 0;
+                                    break;
+                                }
+                                mainProcess = mainProcess->sig;
                             }
-                            PCBSemaforo* temp = semActual;
-                            semActual = semActual->siguiente;
-                            delete temp;
+                        }
+                        semActual = semActual->siguiente;
+                    }
+
+                    // Clean up completed processes in PCB Semaphore
+                    PCBSemaforo* semPrev = NULL;
+                    semActual = ppcbsem;
+                    while (semActual != NULL) {
+                        if (semActual->ciclos <= 0) {
+                            if (semPrev == NULL) {
+                                ppcbsem = semActual->siguiente;
+                                delete semActual;
+                                semActual = ppcbsem;
+                            } else {
+                                semPrev->siguiente = semActual->siguiente;
+                                delete semActual;
+                                semActual = semPrev->siguiente;
+                            }
                         } else {
-                            semAnterior = semActual;
+                            semPrev = semActual;
                             semActual = semActual->siguiente;
                         }
                     }
 
-                    system("pause");
+                    cout << "\nPresione cualquier tecla para continuar...";
+                    getch();
 
                     // Check for interruption
                     if (actual->ciclos_transcurridos == actual->IniInt && 
@@ -619,8 +657,8 @@ void Round_robin() {
                 }
 
                 if (mostrarInterrupcion) {
-                    system("cls");
-                    imprime_PCB();
+                    clrscr();
+                    imprimePCBFiltrado(ppcb);
                     cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt
                          << "\nError encontrado en " << procesoInterrumpido->proceso
                          << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt
@@ -628,29 +666,16 @@ void Round_robin() {
                          << "\n\nPresione cualquier tecla para continuar...";
 
                     getch();
-
-                    // Remove interrupted process
-                    if (procesoInterrumpido == ppcb) {
-                        ppcb = ppcb->sig;
-                    } else {
-                        anterior->sig = procesoInterrumpido->sig;
-                    }
-
-                    delete procesoInterrumpido;
-                    procesoInterrumpido = NULL;
+                    procesoInterrumpido->estado = 4; // Hide instead of delete
                     mostrarInterrupcion = false;
-                    actual = (anterior != NULL) ? anterior->sig : ppcb;
-                    continue;
                 }
 
                 if (actual->ciclos == 0) {
                     actual->estado = 5; // Finished
-                } else if (actual->estado != 6) {
+                } else if (actual->estado != 4 && actual->estado != 6) {
                     actual->estado = 4; // Blocked
                 }
             }
-
-            anterior = actual;
             actual = actual->sig;
         }
 
@@ -658,7 +683,7 @@ void Round_robin() {
         hayPendientes = false;
         actual = ppcb;
         while (actual != NULL) {
-            if (actual->estado == 2 || actual->estado == 4) {
+            if (actual->estado == 2 || (actual->estado == 4 && actual->cpu_es != 1)) {
                 hayPendientes = true;
                 break;
             }
@@ -670,10 +695,10 @@ void Round_robin() {
             hayPendientes = true;
         }
 
-        // Reset blocked processes to ready
+        // Reset blocked processes to ready (only for non-E/S processes)
         actual = ppcb;
         while (actual != NULL) {
-            if (actual->estado == 4) {
+            if (actual->estado == 4 && actual->cpu_es != 1) {
                 actual->estado = 2;
             }
             actual = actual->sig;
