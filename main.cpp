@@ -64,6 +64,7 @@ struct PCB {
 struct PCBSemaforo {
     char proceso[20];
     int tiempo_llegada;
+    int localidad_i;
     int ciclos;
     int estado;
     int CicInt;
@@ -533,26 +534,22 @@ void Round_robin() {
     PCB* actual;
     int tiempo_total = 0;
     actual = ppcb;
-    ppcbsem = NULL; // Initialize PCB semaphore list
+    ppcbsem = NULL;
 
-    // Initialize all processes to state 2 (Ready)
     while (actual != NULL) {
         actual->estado = 2;
         actual = actual->sig;
     }
 
     bool hayPendientes;
-    bool mostrarInterrupcion = false;
-    PCB* procesoInterrumpido = NULL;
-
     do {
         hayPendientes = false;
         actual = ppcb;
 
         while (actual != NULL) {
-            if (actual->estado == 2) {
-                actual->estado = 3; // Set to Running
-                clrscr(); // Borland's clear screen function
+            if (actual->estado == 2) { 
+                actual->estado = 3;  
+                clrscr();
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
                 int cont = 0;
@@ -560,148 +557,136 @@ void Round_robin() {
                 while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
                     clrscr();
                     
-                    // Check if process is E/S type
-                    if (actual->cpu_es == 1) {
-                        // Create new PCB Semaphore entry
-                        nuevopcbsem = new PCBSemaforo;
-                        strcpy(nuevopcbsem->proceso, actual->proceso);
-                        nuevopcbsem->tiempo_llegada = actual->tiempo_llegada;
-                        nuevopcbsem->ciclos = actual->ciclos;
-                        nuevopcbsem->estado = actual->estado;
-                        nuevopcbsem->CicInt = actual->CicInt;
-                        nuevopcbsem->IniInt = actual->IniInt;
-                        nuevopcbsem->CodInt = actual->CodInt;
-                        nuevopcbsem->Duracion = actual->Duracion;
-                        nuevopcbsem->Interrpcion = actual->Interrupcion;
-                        nuevopcbsem->ciclos_transcurridos = actual->ciclos_transcurridos;
-                        nuevopcbsem->ntar = actual->ntar;
-                        nuevopcbsem->siguiente = NULL;
-
-                        // Add to PCB Semaphore list
-                        if (ppcbsem == NULL) {
-                            ppcbsem = nuevopcbsem;
-                            qpcbsem = nuevopcbsem;
-                        } else {
-                            qpcbsem->siguiente = nuevopcbsem;
-                            qpcbsem = nuevopcbsem;
-                        }
-                        
-                        // Set state to 4 to hide it
-                        actual->estado = 4;
-                    }
-
-                    // Print filtered PCB state
-                    imprimePCBFiltrado(ppcb);
+                    cout << "\n\n\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
+                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
+                    cout << "|Proceso|    T. Llegada    |  Localidad  |    Ciclos    |    Estado    |   CPU-E/S     |Ini.Int|Duracion|Interr.|\n";
+                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
                     
-                    // Print PCB Semaphore state
-                    if (ppcbsem != NULL) {
-                        cout << "\nProcesos E/S en PCB Semaforo:\n";
-                        ImprimirPCBSemaforo();
+                    PCB* temp = ppcb;
+                    while (temp != NULL) {
+                        if (temp->estado != 5) { 
+                            cout << temp->proceso
+                                 << "\t\t" << temp->tiempo_llegada << "t"
+                                 << "\t\t" << temp->localidad_i << "kb"
+                                 << "\t\t" << temp->ciclos << "ms"
+                                 << "\t\t" << temp->estado;
+                            
+                            if(temp->Interrupcion)
+                                cout << "\t    E/S";
+                            else
+                                cout << "\t    CPU";
+                            
+                            cout << "\t\t   " << temp->IniInt
+                                 << "\t   " << temp->Duracion
+                                 << "\t   " << temp->CodInt
+                                 << endl;
+                        }
+                        temp = temp->sig;
                     }
+                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
 
-                    actual->ciclos--;
-                    tiempo_total++;
-                    cont++;
-                    actual->ciclos_transcurridos++;
-
-                    // Process PCB Semaphore processes simultaneously
-                    PCBSemaforo* semActual = ppcbsem;
-                    while (semActual != NULL) {
-                        semActual->ciclos--;
-                        if (semActual->ciclos <= 0) {
-                            // Process completed in PCB Semaphore
-                            // Find corresponding process in main PCB and update its state
+                    PCBSemaforo* currentSem = ppcbsem;
+                    PCBSemaforo* prevSem = NULL;
+                    
+                    while (currentSem != NULL) {
+                        currentSem->ciclos--;
+                        
+                        if (currentSem->ciclos <= 0) {
                             PCB* mainProcess = ppcb;
                             while (mainProcess != NULL) {
-                                if (strcmp(mainProcess->proceso, semActual->proceso) == 0) {
-                                    mainProcess->estado = 5; // Mark as completed
-                                    mainProcess->ciclos = 0;
+                                if (strcmp(mainProcess->proceso, currentSem->proceso) == 0) {
+                                    mainProcess->estado = 2;
+                                    mainProcess->Interrupcion = false;
                                     break;
                                 }
                                 mainProcess = mainProcess->sig;
                             }
+                            
+                            PCBSemaforo* tempSem = currentSem;
+                            if (prevSem == NULL) {
+                                ppcbsem = currentSem->siguiente;
+                            } else {
+                                prevSem->siguiente = currentSem->siguiente;
+                            }
+                            currentSem = currentSem->siguiente;
+                            delete tempSem;
+                        } else {
+                            prevSem = currentSem;
+                            currentSem = currentSem->siguiente;
                         }
-                        semActual = semActual->siguiente;
                     }
 
-                    // Clean up completed processes in PCB Semaphore
-                    PCBSemaforo* semPrev = NULL;
-                    semActual = ppcbsem;
-                    while (semActual != NULL) {
-                        if (semActual->ciclos <= 0) {
-                            if (semPrev == NULL) {
-                                ppcbsem = semActual->siguiente;
-                                delete semActual;
-                                semActual = ppcbsem;
-                            } else {
-                                semPrev->siguiente = semActual->siguiente;
-                                delete semActual;
-                                semActual = semPrev->siguiente;
-                            }
-                        } else {
-                            semPrev = semActual;
-                            semActual = semActual->siguiente;
-                        }
+                    if (actual->estado == 3 && actual->Interrupcion && actual->ciclos == actual->IniInt) {
+                        nuevopcbsem = new PCBSemaforo;
+                        strcpy(nuevopcbsem->proceso, actual->proceso);
+                        nuevopcbsem->tiempo_llegada = actual->tiempo_llegada;
+                        nuevopcbsem->ciclos = quantum;
+                        nuevopcbsem->estado = 4;
+                        nuevopcbsem->CicInt = actual->CicInt;
+                        nuevopcbsem->IniInt = actual->IniInt;
+                        nuevopcbsem->CodInt = actual->CodInt;
+                        nuevopcbsem->Duracion = actual->Duracion;
+                        nuevopcbsem->localidad_i = actual->localidad_i;
+                        nuevopcbsem->siguiente = ppcbsem;
+                        ppcbsem = nuevopcbsem;
+
+                        actual->estado = 4;
+                        break;
                     }
+
+                    cout << "\n\n\t\tBLOQUE DE CONTROL DE PROCESOS (SEMAFORO)\n";
+                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
+                    cout << "|Proceso|    T. Llegada    |  Localidad  |    Ciclos    |    Estado    |   CPU-E/S     |Ini.Int|Duracion|Interr.|\n";
+                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
+                    
+                    if (ppcbsem != NULL) {
+                        PCBSemaforo* semTemp = ppcbsem;
+                        while (semTemp != NULL) {
+                            cout << semTemp->proceso
+                                 << "\t\t" << semTemp->tiempo_llegada << "t"
+                                 << "\t\t" << semTemp->localidad_i << "kb"
+                                 << "\t\t" << semTemp->ciclos << "ms"
+                                 << "\t\t4"
+                                 << "\t    E/S"
+                                 << "\t\t   " << semTemp->IniInt
+                                 << "\t   " << semTemp->Duracion
+                                 << "\t   " << semTemp->CodInt
+                                 << endl;
+                            semTemp = semTemp->siguiente;
+                        }
+                    } else {
+                        cout << "\t\t\t\t\tNo hay procesos en semaforo" << endl;
+                    }
+                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
+
+                    actual->ciclos--;
+                    tiempo_total++;
+                    cont++;
 
                     cout << "\nPresione cualquier tecla para continuar...";
                     getch();
-
-                    // Check for interruption
-                    if (actual->ciclos_transcurridos == actual->IniInt && 
-                        actual->Interrupcion) {
-                        mostrarInterrupcion = true;
-                        procesoInterrumpido = actual;
-                        break;
-                    }
                 }
 
-                if (mostrarInterrupcion) {
-                    clrscr();
-                    imprimePCBFiltrado(ppcb);
-                    cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt
-                         << "\nError encontrado en " << procesoInterrumpido->proceso
-                         << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt
-                         << "\nDescripcion: " << A[procesoInterrumpido->CodInt].desc
-                         << "\n\nPresione cualquier tecla para continuar...";
-
-                    getch();
-                    procesoInterrumpido->estado = 4; // Hide instead of delete
-                    mostrarInterrupcion = false;
-                }
-
-                if (actual->ciclos == 0) {
-                    actual->estado = 5; // Finished
-                } else if (actual->estado != 4 && actual->estado != 6) {
-                    actual->estado = 4; // Blocked
+                if (actual->ciclos <= 0) {
+                    actual->estado = 5;
+                } else if (actual->estado != 4) {
+                    actual->estado = 2;
                 }
             }
             actual = actual->sig;
         }
 
-        // Check for pending processes in both PCB and PCB Semaphore
-        hayPendientes = false;
         actual = ppcb;
         while (actual != NULL) {
-            if (actual->estado == 2 || (actual->estado == 4 && actual->cpu_es != 1)) {
+            if (actual->estado == 2 || actual->estado == 4) {
                 hayPendientes = true;
                 break;
             }
             actual = actual->sig;
         }
-
-        // Also check PCB Semaphore
+        
         if (ppcbsem != NULL) {
             hayPendientes = true;
-        }
-
-        // Reset blocked processes to ready (only for non-E/S processes)
-        actual = ppcb;
-        while (actual != NULL) {
-            if (actual->estado == 4 && actual->cpu_es != 1) {
-                actual->estado = 2;
-            }
-            actual = actual->sig;
         }
 
     } while (hayPendientes);
