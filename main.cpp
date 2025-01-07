@@ -50,12 +50,13 @@ struct PCB {
     int localidad_i;
     int ciclos;
     int estado;
-    int cpu_es;
     int CicInt;
     int IniInt;
     int CodInt;
     int Duracion;
-    bool Interrupcion;
+    bool cpu_es;
+    bool interrupcion;
+    bool Error;
     int ciclos_transcurridos;
     int ntar;
     PCB* sig;
@@ -75,8 +76,9 @@ struct PCBSemaforo {
     bool Interrpcion;
     int ciclos_transcurridos;
     int ntar;
-    PCBSemaforo* siguiente;
+    PCBSemaforo* sig;
 };
+
 
 int calc_marcos(void);
 void crearMMT(int);
@@ -90,10 +92,9 @@ void asigna_pag(int, int);
 void asigna_paginas_con_secuencia();
 void crearPCB();
 void imprime_PCB();
-void ImprimirPCBSemaforo();
-void imprimePCBFiltrado(PCB* ppcb);
 void Round_robin();
 void Crear_vector(Interrupciones A[]);
+void semaforo();
 
 
 
@@ -101,7 +102,6 @@ MMT* pmmt = NULL, * qmmt, * nuevommt, * auxmmt;
 JT* pjt = NULL, * qjt, * nuevojt, * auxjt;
 PMT* pp[N] = { NULL }, * qp[N], * nuevop[N], * auxp[N]; // Tablas de p?ginas por tarea
 PCB* ppcb = NULL, *qpcb, *nuevopcb;
-PCBSemaforo* ppcbsem = NULL, *qpcbsem = NULL, *nuevopcbsem = NULL, *auxpcbsem = NULL;
 
 int main() {
      srand(time(NULL));
@@ -386,20 +386,43 @@ void crearPCB() {
                 sprintf(nuevopcb->proceso, "J%dP%d", i, auxp->pagina); 
                 nuevopcb->tiempo_llegada = contador;    
                 nuevopcb->localidad_i= auxp->marco * ma; 
-                nuevopcb->ciclos = 2 + rand() % (7-2+1);;       
+                nuevopcb->ciclos = 2 + rand() % (7-2+1);  
                 nuevopcb->estado = 1;     
-                nuevopcb->cpu_es = 0+rand()%3; 
-                nuevopcb->IniInt = 0+rand()%2;
-                nuevopcb->Interrupcion=0+rand()%2;
-                if(nuevopcb->Interrupcion==1){
+                nuevopcb->cpu_es = 0+rand()%2;
+                
+				if(nuevopcb->cpu_es==true){ //--> E/S
+                   nuevopcb->Error=0+rand()%2;//aleatorio de errores 
+                   if(nuevopcb->Error==1){
                     nuevopcb->CodInt = 0+rand ()%14;
                     nuevopcb->IniInt=2+rand()%(nuevopcb->ciclos-2+1);
                     nuevopcb->Duracion=0;
-                }else if(nuevopcb->Interrupcion==0){
-                    nuevopcb->IniInt=0;
-                    nuevopcb->CodInt = -1;
-                    nuevopcb->Duracion=77;
-                }
+                }else if(nuevopcb->Error==0){ //SI NO TIENE ERROR QUIERE DECIR QUE ES SOLO INTERRUPCION Y SE VA A SEMAFORO
+                    nuevopcb->CodInt =-1;
+                    nuevopcb->IniInt = 2 + rand() % (nuevopcb->ciclos - 2 + 1);
+                    nuevopcb->Duracion = 1 + rand() % ((nuevopcb->ciclos - nuevopcb->IniInt) + 1);
+                 }   
+				}
+                if(nuevopcb->cpu_es==false){  //-->CPU
+                   nuevopcb->Error=0+rand()%2;//aleatorio de errores 
+                   if(nuevopcb->Error==1){
+                    nuevopcb->CodInt = 0+rand ()%14;
+                    nuevopcb->IniInt=2+rand()%(nuevopcb->ciclos-2+1);
+                    nuevopcb->Duracion=0;
+                }else if(nuevopcb->Error==0){// SI NO TIENE ERROR PUEDE QUE TENGA O NO INTERRUPCION(PUEDE IR O NO A SEMAFORO) 
+                    nuevopcb->interrupcion=0+rand()%2;
+                    if(nuevopcb->interrupcion==true){
+						nuevopcb->IniInt = 2 + rand() % (nuevopcb->ciclos - 2 + 1);
+                        nuevopcb->Duracion = 1 + rand() % ((nuevopcb->ciclos - nuevopcb->IniInt) + 1);
+						nuevopcb->CodInt=-1;
+								
+					}else if (nuevopcb->interrupcion==false){
+					       nuevopcb->IniInt=0;
+                           nuevopcb->CodInt = -1;
+                           nuevopcb->Duracion=0;	
+					}
+                 }
+				}
+                
                 contador++;
                 nuevopcb->sig = NULL; 
                 
@@ -430,73 +453,19 @@ void imprime_PCB() {
              << "\t\t" << actual->localidad_i << "kb"
 			 << "\t\t" << actual->ciclos << "ms"
              << "\t\t" << actual->estado;
-            if(actual->Interrupcion==true)
+            if(actual->cpu_es==true)
                 cout<<"\t    E/S";
-             else if(actual->Interrupcion==false)
+             else if(actual->cpu_es==false)
                 cout<<"\t    CPU";
         cout << "\t\t   " << actual->IniInt
              << "\t   " << actual->Duracion
              << "\t   " << actual->CodInt
              << endl;
 
-        actual = actual->sig;
+        actual = actual->sig; // Avanzar al siguiente proceso
     }
     cout << "----------------------------------------------------------------------------------------------------------------" << endl;
 }
-
-
-void ImprimirPCBSemaforo() {
-    cout << "\n=== Lista de Procesos en PCBSemaforo ===\n";
-    cout << "-------------------------------------------------------------------------------------------------\n";
-    cout << "|Proceso|    T. Llegada    |   Ciclos   |    Estado |      E/S      |Ini.Int|Duracion|Interr.|\n";
-    cout << "-------------------------------------------------------------------------------------------------\n";
-
-    auxpcbsem = ppcbsem;
-    while (auxpcbsem != NULL) {
-        cout << auxpcbsem->proceso
-             << "\t\t" << auxpcbsem->tiempo_llegada << "t"
-             << "\t\t" << auxpcbsem->ciclos << "ms"
-             << "\t\t" << auxpcbsem->estado
-             << "\t\t E/S"
-             << "\t\t   " << auxpcbsem->IniInt
-             << "\t   " << auxpcbsem->Duracion
-             << "\t   " << auxpcbsem->CodInt
-             << endl;
-
-        auxpcbsem = auxpcbsem->siguiente;
-    }
-    cout << "-------------------------------------------------------------------------------------------------\n";
-}
-
-void imprimePCBFiltrado(PCB* ppcb) {
-    cout << "\n\n\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
-    cout << "-----------------------------------------------------------------------------------------------------------------" << endl;
-    cout << "|Proceso|    T. Llegada    |  Localidad  |    Ciclos    |    Estado    |   CPU-E/S     |Ini.Int|Duracion|Interr.|" << endl;
-    cout << "-----------------------------------------------------------------------------------------------------------------" << endl;
-
-    PCB* actual = ppcb;
-    while (actual != NULL) {
-       
-        if (actual->cpu_es != 1 && actual->estado != 4) {
-            cout << actual->proceso
-                 << "\t\t" << actual->tiempo_llegada << "t"
-                 << "\t\t" << actual->localidad_i << "kb"
-                 << "\t\t" << actual->ciclos << "ms"
-                 << "\t\t" << actual->estado;
-            if(actual->Interrupcion)
-                cout<<"\t    E/S";
-            else
-                cout<<"\t    CPU";
-            cout << "\t\t   " << actual->IniInt
-                 << "\t   " << actual->Duracion
-                 << "\t   " << actual->CodInt
-                 << endl;
-        }
-        actual = actual->sig;
-    }
-    cout << "-----------------------------------------------------------------------------------------------------------------" << endl;
-}
-
 void Crear_vector(Interrupciones A[]){
    A[0].codigo= 19; 
    A[0].desc= "Obtener unidad de disco por defecto \n";
@@ -534,148 +503,90 @@ void Round_robin() {
     PCB* actual;
     int tiempo_total = 0;
     actual = ppcb;
-    ppcbsem = NULL;
 
+    // Inicializar todos los procesos a estado 2 (Listo)
     while (actual != NULL) {
-        actual->estado = 2;
+        actual->estado = 2; // 2 significa 'Listo'
         actual = actual->sig;
     }
 
     bool hayPendientes;
+    bool mostrarInterrupcion = false;
+    PCB* procesoInterrumpido = NULL;
+
     do {
         hayPendientes = false;
         actual = ppcb;
+        PCB* anterior = NULL; // Para manejar la eliminación de nodos
 
         while (actual != NULL) {
-            if (actual->estado == 2) { 
-                actual->estado = 3;  
-                clrscr();
+            if (actual->estado == 2) {
+                actual->estado = 3; // 3 significa 'Ejecutando'
+                system("cls");
 
                 int ciclos_a_ejecutar = (actual->ciclos > quantum) ? quantum : actual->ciclos;
                 int cont = 0;
 
                 while (cont < ciclos_a_ejecutar && actual->ciclos > 0) {
-                    clrscr();
-                    
-                    cout << "\n\n\t\tBLOQUE DE CONTROL DE PROCESOS (PCB)\n";
-                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
-                    cout << "|Proceso|    T. Llegada    |  Localidad  |    Ciclos    |    Estado    |   CPU-E/S     |Ini.Int|Duracion|Interr.|\n";
-                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
-                    
-                    PCB* temp = ppcb;
-                    while (temp != NULL) {
-                        if (temp->estado != 5) { 
-                            cout << temp->proceso
-                                 << "\t\t" << temp->tiempo_llegada << "t"
-                                 << "\t\t" << temp->localidad_i << "kb"
-                                 << "\t\t" << temp->ciclos << "ms"
-                                 << "\t\t" << temp->estado;
-                            
-                            if(temp->Interrupcion)
-                                cout << "\t    E/S";
-                            else
-                                cout << "\t    CPU";
-                            
-                            cout << "\t\t   " << temp->IniInt
-                                 << "\t   " << temp->Duracion
-                                 << "\t   " << temp->CodInt
-                                 << endl;
-                        }
-                        temp = temp->sig;
-                    }
-                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
-
-                    PCBSemaforo* currentSem = ppcbsem;
-                    PCBSemaforo* prevSem = NULL;
-                    
-                    while (currentSem != NULL) {
-                        currentSem->ciclos--;
-                        
-                        if (currentSem->ciclos <= 0) {
-                            PCB* mainProcess = ppcb;
-                            while (mainProcess != NULL) {
-                                if (strcmp(mainProcess->proceso, currentSem->proceso) == 0) {
-                                    mainProcess->estado = 2;
-                                    mainProcess->Interrupcion = false;
-                                    break;
-                                }
-                                mainProcess = mainProcess->sig;
-                            }
-                            
-                            PCBSemaforo* tempSem = currentSem;
-                            if (prevSem == NULL) {
-                                ppcbsem = currentSem->siguiente;
-                            } else {
-                                prevSem->siguiente = currentSem->siguiente;
-                            }
-                            currentSem = currentSem->siguiente;
-                            delete tempSem;
-                        } else {
-                            prevSem = currentSem;
-                            currentSem = currentSem->siguiente;
-                        }
-                    }
-
-                    if (actual->estado == 3 && actual->Interrupcion && actual->ciclos == actual->IniInt) {
-                        nuevopcbsem = new PCBSemaforo;
-                        strcpy(nuevopcbsem->proceso, actual->proceso);
-                        nuevopcbsem->tiempo_llegada = actual->tiempo_llegada;
-                        nuevopcbsem->ciclos = quantum;
-                        nuevopcbsem->estado = 4;
-                        nuevopcbsem->CicInt = actual->CicInt;
-                        nuevopcbsem->IniInt = actual->IniInt;
-                        nuevopcbsem->CodInt = actual->CodInt;
-                        nuevopcbsem->Duracion = actual->Duracion;
-                        nuevopcbsem->localidad_i = actual->localidad_i;
-                        nuevopcbsem->siguiente = ppcbsem;
-                        ppcbsem = nuevopcbsem;
-
-                        actual->estado = 4;
-                        break;
-                    }
-
-                    cout << "\n\n\t\tBLOQUE DE CONTROL DE PROCESOS (SEMAFORO)\n";
-                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
-                    cout << "|Proceso|    T. Llegada    |  Localidad  |    Ciclos    |    Estado    |   CPU-E/S     |Ini.Int|Duracion|Interr.|\n";
-                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
-                    
-                    if (ppcbsem != NULL) {
-                        PCBSemaforo* semTemp = ppcbsem;
-                        while (semTemp != NULL) {
-                            cout << semTemp->proceso
-                                 << "\t\t" << semTemp->tiempo_llegada << "t"
-                                 << "\t\t" << semTemp->localidad_i << "kb"
-                                 << "\t\t" << semTemp->ciclos << "ms"
-                                 << "\t\t4"
-                                 << "\t    E/S"
-                                 << "\t\t   " << semTemp->IniInt
-                                 << "\t   " << semTemp->Duracion
-                                 << "\t   " << semTemp->CodInt
-                                 << endl;
-                            semTemp = semTemp->siguiente;
-                        }
-                    } else {
-                        cout << "\t\t\t\t\tNo hay procesos en semaforo" << endl;
-                    }
-                    cout << "-----------------------------------------------------------------------------------------------------------------\n";
-
+                    system("cls");
+                    imprime_PCB(); // Función para imprimir los PCB
                     actual->ciclos--;
                     tiempo_total++;
                     cont++;
+                    actual->ciclos_transcurridos++;
 
-                    cout << "\nPresione cualquier tecla para continuar...";
-                    getch();
+                    system("pause");
+
+                    // Verificar si se alcanza una interrupción
+                    if (actual->ciclos_transcurridos == actual->IniInt || 
+                        (actual->ciclos == 0 && actual->ciclos_transcurridos == actual->IniInt)) {
+                        
+                        mostrarInterrupcion = true;
+                        procesoInterrumpido = actual;
+                        break; 
+                    }
                 }
 
-                if (actual->ciclos <= 0) {
-                    actual->estado = 5;
-                } else if (actual->estado != 4) {
-                    actual->estado = 2;
+                if (mostrarInterrupcion==true) {
+                    system("cls");
+                    imprime_PCB();
+                    cout << "\nCodigo de interrupcion: " << procesoInterrumpido->CodInt
+                         << "\nError encontrado en " << procesoInterrumpido->proceso
+                         << "\nError encontrado en el tiempo: " << procesoInterrumpido->IniInt
+                         << "\nDescripcion: " << A[procesoInterrumpido->CodInt].desc
+                         << "\n\nPresione cualquier tecla para continuar y eliminar la interrupcion...";
+
+                    getch();
+
+                    // Eliminar el proceso interrumpido de la lista
+                    if (procesoInterrumpido == ppcb) {
+                        ppcb = ppcb->sig; // Eliminar el primer nodo
+                    } else {
+                        anterior->sig = procesoInterrumpido->sig;
+                    }
+
+                    delete procesoInterrumpido; // Liberar memoria
+                    procesoInterrumpido = NULL;
+                    mostrarInterrupcion = false;
+
+                    // Continuar con el siguiente nodo después de eliminar
+                    actual = (anterior != NULL) ? anterior->sig : ppcb;
+                    continue;
+                }
+
+                if (actual->ciclos == 0) {
+                    actual->estado = 5; // 5 significa 'Finalizado'
+                } else if (actual->estado != 6) {
+                    actual->estado = 4; // 4 significa 'Bloqueado'
                 }
             }
+
+            anterior = actual;
             actual = actual->sig;
         }
 
+        // Verificar si quedan procesos pendientes
+        hayPendientes = false;
         actual = ppcb;
         while (actual != NULL) {
             if (actual->estado == 2 || actual->estado == 4) {
@@ -684,9 +595,14 @@ void Round_robin() {
             }
             actual = actual->sig;
         }
-        
-        if (ppcbsem != NULL) {
-            hayPendientes = true;
+
+        // Reiniciar solo los procesos bloqueados (estado 4 a estado 2)
+        actual = ppcb;
+        while (actual != NULL) {
+            if (actual->estado == 4) {
+                actual->estado = 2;  // Reiniciar de Bloqueado a Listo
+            }
+            actual = actual->sig;
         }
 
     } while (hayPendientes);
